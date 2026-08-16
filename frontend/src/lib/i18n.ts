@@ -182,6 +182,10 @@ const ru = {
   "settings.language": "Язык",
   "settings.languageRussian": "Русский",
   "settings.languageEnglish": "English",
+  "settings.theme": "Тема оформления",
+  "settings.themeLight": "Светлая",
+  "settings.themeDark": "Тёмная",
+  "settings.themeSystem": "Системная",
   "settings.currency": "Основная валюта",
   "settings.currencyHint":
     "Меняет только отображение сумм — уже введённые значения не пересчитываются и не конвертируются.",
@@ -504,6 +508,10 @@ const en: Record<keyof typeof ru, string> = {
   "settings.language": "Language",
   "settings.languageRussian": "Русский",
   "settings.languageEnglish": "English",
+  "settings.theme": "Theme",
+  "settings.themeLight": "Light",
+  "settings.themeDark": "Dark",
+  "settings.themeSystem": "System",
   "settings.currency": "Primary currency",
   "settings.currencyHint":
     "Only changes how amounts are displayed — values you've already entered aren't recalculated or converted.",

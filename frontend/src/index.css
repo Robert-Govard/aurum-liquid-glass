@@ -2,8 +2,9 @@
 
 /*
  * Semantic tokens, light values first. Dark values are re-declared for both
- * the OS-level `prefers-color-scheme` and an eventual manual `[data-theme]`
- * toggle, per the dataviz skill's reference palette (references/palette.md).
+ * the OS-level `prefers-color-scheme` and the manual `[data-theme]` toggle
+ * (Settings → Theme, see lib/theme.ts), per the dataviz skill's reference
+ * palette (references/palette.md).
  */
 :root {
   color-scheme: light;
