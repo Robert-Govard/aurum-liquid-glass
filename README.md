@@ -102,8 +102,8 @@ docker compose version
 ### 2. Get the code
 
 ```bash
-git clone <this repository's URL>
-cd aurum
+git clone https://github.com/Zproger/Aurum.git
+cd Aurum
 ```
 
 ### 3. Configure your environment
