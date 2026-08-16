@@ -6,7 +6,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 # Single source of truth for the running app's version — surfaced in the API
 # title and embedded in exported backups so an old file can be told apart
 # from a current one.
-APP_VERSION = "0.19.2"
+APP_VERSION = "0.20.0"
 
 
 class Settings(BaseSettings):

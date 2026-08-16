@@ -23,9 +23,13 @@ trap cleanup EXIT
 
 $COMPOSE up -d --build
 
-echo "waiting for http://localhost:${AURUM_WEB_PORT} ..."
+echo "waiting for http://localhost:${AURUM_WEB_PORT}/api/health ..."
+# /api/health, not just / — nginx (the `web` container) answers the bare root
+# well before the backend has finished running migrations + seeding, and a
+# request racing ahead of that gets nginx's own HTML error page back instead
+# of JSON, which the first test to touch the API then fails to parse.
 for _ in $(seq 1 60); do
-  if curl -sf "http://localhost:${AURUM_WEB_PORT}" >/dev/null; then
+  if curl -sf "http://localhost:${AURUM_WEB_PORT}/api/health" >/dev/null; then
     echo "stack is up"
     break
   fi

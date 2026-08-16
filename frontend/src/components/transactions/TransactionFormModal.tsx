@@ -233,6 +233,15 @@ export function TransactionFormModal({ open, onClose, transaction }: Transaction
           />
         </div>
 
+        <div>
+          <Label htmlFor="notes">{t("transactions.form.notesLabel")}</Label>
+          <Input
+            id="notes"
+            value={form.notes}
+            onChange={(event) => setForm((prev) => ({ ...prev, notes: event.target.value }))}
+          />
+        </div>
+
         {error && <p className="text-sm text-danger">{error}</p>}
 
         <div className="flex justify-end gap-2 pt-2">
