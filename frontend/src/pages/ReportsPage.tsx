@@ -132,6 +132,8 @@ export function ReportsPage() {
         </div>
       </div>
 
+      <CategorySpendingChart report={report} isLoading={isReportLoading} />
+
       <CategoryRankingCard
         items={ranking?.items ?? []}
         isLoading={isRankingLoading}
@@ -141,8 +143,6 @@ export function ReportsPage() {
           setPage(1);
         }}
       />
-
-      <CategorySpendingChart report={report} isLoading={isReportLoading} />
 
       <Card>
         <CardHeader>
