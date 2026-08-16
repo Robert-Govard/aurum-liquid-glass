@@ -9,7 +9,32 @@ Aurum is a source-available personal finance operating system — a complete, gr
 [![License: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-blue.svg)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-[Features](#-core-features) • [Getting Started](#-getting-started) • [Security](#-security--self-hosting) • [Roadmap](#%EF%B8%8F-roadmap) • [Contributing](#-contributing) • [License](#-license)
+[Features](#-core-features) • [Screenshots](#-screenshots) • [Getting Started](#-getting-started) • [Security](#-security--self-hosting) • [Contributing](#-contributing) • [License](#-license)
+
+</div>
+
+## 🖼️ Screenshots
+
+<div align="center">
+
+<img src="images/1.png" alt="Aurum dashboard — real income, spending, savings rate, spending by category, and recent transactions" width="100%" />
+
+<br /><br />
+
+<img src="images/2.png" alt="Aurum net worth timeline with full asset allocation breakdown" width="100%" />
+
+<br /><br />
+
+<table>
+<tr>
+<td width="50%"><img src="images/3.png" alt="Capital grouped by type (income / neutral / drain) and by risk level" /></td>
+<td width="50%"><img src="images/4.png" alt="Transactions list with filters" /></td>
+</tr>
+<tr>
+<td width="50%"><img src="images/5.png" alt="Cash flow chart, income vs. expense by month" /></td>
+<td width="50%"><img src="images/6.png" alt="Category spending report over time" /></td>
+</tr>
+</table>
 
 </div>
 
@@ -144,18 +169,6 @@ Your data lives in a Docker named volume (`aurum_pgdata`), not in the repo folde
 
 If you find a security issue, please open a private report via GitHub's Security tab rather than a public issue.
 
-## 🗺️ Roadmap
-
-Aurum's core (accounts, transactions, budgets, goals, recurring payments, net worth, reports, alerts, backup/restore) is built and in daily use. Planned next:
-
-- [ ] Bank/broker sync integrations
-- [ ] Native multi-currency support (live conversion, not just relabeling)
-- [ ] AI-assisted insights (anomaly detection, natural-language Q&A over your own data)
-- [ ] Automated test suite & CI
-- [ ] Mobile app
-
-> Want to help shape this list? Open a [Discussion](../../discussions) or an [Issue](../../issues).
-
 ## 🛠️ Tech Stack
 
 - **Frontend:** React 19, TypeScript, Vite, Tailwind CSS, React Router, TanStack Query, Recharts
@@ -172,10 +185,6 @@ Aurum is built in the open, for everyone. Contributions of all kinds are welcome
 Aurum is released under the [PolyForm Noncommercial License 1.0.0](LICENSE).
 
 In plain terms: you can read the code, self-host it, modify it, and use it for any personal, educational, or noncommercial purpose, for free, forever. What you can't do is take it (or a modified version of it) and sell it, host it as a paid service for others, or otherwise build a commercial product on top of it. This is **not** an OSI-approved open source license — it's *source-available*. See the [LICENSE](LICENSE) file for the exact terms, and open a [Discussion](../../discussions) if you have a use case you're not sure is covered.
-
-## 💬 Community
-
-Have ideas, questions, or feedback? Open a [Discussion](../../discussions) or start an [Issue](../../issues). Every conversation helps shape where Aurum goes next.
 
 ---
 
