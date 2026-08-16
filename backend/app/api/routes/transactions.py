@@ -98,6 +98,19 @@ async def list_transactions(
     return TransactionPage(items=items, total=total, page=page, page_size=page_size)
 
 
+@router.get("/years", response_model=list[int])
+async def list_transaction_years(session: AsyncSession = Depends(get_session)) -> list[int]:
+    """Full range of years to offer in the year picker — from the earliest
+    transaction through the current year, so a gap year with no activity
+    still shows up (as zero) instead of silently disappearing from the UI."""
+    bounds = await session.execute(select(func.min(Transaction.date), func.max(Transaction.date)))
+    min_date, max_date = bounds.one()
+    current_year = date_.today().year
+    if min_date is None:
+        return [current_year]
+    return list(range(min_date.year, max(max_date.year, current_year) + 1))
+
+
 @router.post("", response_model=TransactionRead, status_code=201)
 async def create_transaction(payload: TransactionCreate, session: AsyncSession = Depends(get_session)) -> Transaction:
     await _ensure_category_matches_type(session, payload.category_id, payload.type)

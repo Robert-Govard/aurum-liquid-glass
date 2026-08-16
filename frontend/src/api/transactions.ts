@@ -24,6 +24,13 @@ export function fetchTransactions(filters: TransactionFilters = {}) {
   return api.get<TransactionPage>(`/transactions?${params.toString()}`);
 }
 
+/** Full range of years to offer in the year picker, from the earliest
+ * transaction through the current year (see backend for the "gap year"
+ * rationale). */
+export function fetchTransactionYears() {
+  return api.get<number[]>("/transactions/years");
+}
+
 export function createTransaction(input: TransactionInput) {
   return api.post<Transaction>("/transactions", input);
 }

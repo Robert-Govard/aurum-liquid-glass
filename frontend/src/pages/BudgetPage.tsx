@@ -3,10 +3,12 @@ import { Plus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { MonthSelector } from "@/components/layout/MonthSelector";
+import { YearSelector } from "@/components/layout/YearSelector";
 import { AlertBanner } from "@/components/insights/AlertBanner";
 import { BudgetList } from "@/components/budget/BudgetList";
 import { BudgetFormModal } from "@/components/budget/BudgetFormModal";
 import { useBudgets, useBudgetStatus, useDeleteBudget } from "@/hooks/useBudgets";
+import { useTransactionYears } from "@/hooks/useTransactions";
 import { useTranslation } from "@/lib/i18n";
 import { translateCategoryName } from "@/lib/categoryLabels";
 import type { Budget, BudgetStatus } from "@/types";
@@ -14,8 +16,9 @@ import type { Budget, BudgetStatus } from "@/types";
 export function BudgetPage() {
   const { t } = useTranslation();
   const now = new Date();
-  const [year] = useState(now.getFullYear());
+  const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
+  const { data: years } = useTransactionYears();
 
   const { data: budgets } = useBudgets();
   const { data: status, isLoading } = useBudgetStatus(year, month);
@@ -51,7 +54,10 @@ export function BudgetPage() {
     <div className="space-y-5">
       <AlertBanner />
 
-      <MonthSelector month={month} onChange={setMonth} />
+      <div className="space-y-2">
+        <YearSelector years={years ?? [now.getFullYear()]} year={year} onChange={setYear} />
+        <MonthSelector month={month} onChange={setMonth} />
+      </div>
 
       <Card>
         <CardHeader>

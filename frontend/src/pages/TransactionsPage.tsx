@@ -4,9 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Input";
 import { MonthSelector } from "@/components/layout/MonthSelector";
+import { YearSelector } from "@/components/layout/YearSelector";
 import { TransactionsTable } from "@/components/transactions/TransactionsTable";
 import { TransactionFormModal } from "@/components/transactions/TransactionFormModal";
-import { useTransactions, useDeleteTransaction } from "@/hooks/useTransactions";
+import { useTransactions, useDeleteTransaction, useTransactionYears } from "@/hooks/useTransactions";
 import { useCategories } from "@/hooks/useCategories";
 import type { TransactionSort } from "@/api/transactions";
 import { useTranslation } from "@/lib/i18n";
@@ -18,7 +19,7 @@ const PAGE_SIZE = 20;
 export function TransactionsPage() {
   const { t } = useTranslation();
   const now = new Date();
-  const [year] = useState(now.getFullYear());
+  const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [type, setType] = useState<TransactionType | "">("");
   const [categoryId, setCategoryId] = useState<string>("");
@@ -29,6 +30,7 @@ export function TransactionsPage() {
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 
   const { data: categories } = useCategories();
+  const { data: years } = useTransactionYears();
   const { data, isLoading, isError } = useTransactions({
     year,
     month,
@@ -61,13 +63,23 @@ export function TransactionsPage() {
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <MonthSelector
-          month={month}
-          onChange={(value) => {
-            setMonth(value);
-            setPage(1);
-          }}
-        />
+        <div className="space-y-2">
+          <YearSelector
+            years={years ?? [now.getFullYear()]}
+            year={year}
+            onChange={(value) => {
+              setYear(value);
+              setPage(1);
+            }}
+          />
+          <MonthSelector
+            month={month}
+            onChange={(value) => {
+              setMonth(value);
+              setPage(1);
+            }}
+          />
+        </div>
         <Button onClick={openCreateModal} className="w-full sm:w-auto">
           <Plus size={16} />
           {t("transactions.addButton")}

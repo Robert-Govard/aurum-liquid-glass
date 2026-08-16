@@ -3,6 +3,7 @@ import {
   createTransaction,
   deleteTransaction,
   fetchTransactions,
+  fetchTransactionYears,
   updateTransaction,
   type TransactionFilters,
 } from "@/api/transactions";
@@ -12,6 +13,7 @@ function useInvalidateAfterTransactionChange() {
   const queryClient = useQueryClient();
   return () => {
     queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    queryClient.invalidateQueries({ queryKey: ["transaction-years"] });
     queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
     queryClient.invalidateQueries({ queryKey: ["net-worth-summary"] });
     queryClient.invalidateQueries({ queryKey: ["category-spending-report"] });
@@ -27,6 +29,13 @@ export function useTransactions(filters: TransactionFilters) {
   return useQuery({
     queryKey: ["transactions", filters],
     queryFn: () => fetchTransactions(filters),
+  });
+}
+
+export function useTransactionYears() {
+  return useQuery({
+    queryKey: ["transaction-years"],
+    queryFn: fetchTransactionYears,
   });
 }
 

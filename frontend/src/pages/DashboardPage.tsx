@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { MonthSelector } from "@/components/layout/MonthSelector";
+import { YearSelector } from "@/components/layout/YearSelector";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { SpendingByCategoryCard } from "@/components/dashboard/SpendingByCategoryCard";
 import { RecentTransactionsCard } from "@/components/dashboard/RecentTransactionsCard";
 import { AlertBanner } from "@/components/insights/AlertBanner";
 import { useDashboardSummary } from "@/hooks/useDashboard";
+import { useTransactionYears } from "@/hooks/useTransactions";
 import { formatCurrency, formatSignedCurrency } from "@/lib/format";
 import { useTranslation } from "@/lib/i18n";
 
@@ -22,8 +24,9 @@ function formatPercent(value: number): string {
 export function DashboardPage() {
   const { t } = useTranslation();
   const now = new Date();
-  const [year] = useState(now.getFullYear());
+  const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
+  const { data: years } = useTransactionYears();
 
   const { data, isLoading, isError } = useDashboardSummary(year, month);
   const rate = data ? savingsRate(Number(data.real_income), Number(data.net)) : null;
@@ -32,7 +35,10 @@ export function DashboardPage() {
     <div className="space-y-5">
       <AlertBanner excludeKeys={["risky_allocation_exceeded"]} />
 
-      <MonthSelector month={month} onChange={setMonth} />
+      <div className="space-y-2">
+        <YearSelector years={years ?? [now.getFullYear()]} year={year} onChange={setYear} />
+        <MonthSelector month={month} onChange={setMonth} />
+      </div>
 
       {isError && (
         <p className="rounded-lg border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
