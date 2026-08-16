@@ -5,9 +5,14 @@ import { formatCurrency, formatTransactionDate } from "@/lib/format";
 import { useTranslation } from "@/lib/i18n";
 import { useTransactions } from "@/hooks/useTransactions";
 
-export function RecentTransactionsCard() {
+interface RecentTransactionsCardProps {
+  year: number;
+  month: number;
+}
+
+export function RecentTransactionsCard({ year, month }: RecentTransactionsCardProps) {
   const { t } = useTranslation();
-  const { data, isLoading } = useTransactions({ page: 1, page_size: 6 });
+  const { data, isLoading } = useTransactions({ year, month, page: 1, page_size: 6 });
 
   return (
     <Card>
