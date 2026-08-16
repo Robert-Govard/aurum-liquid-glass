@@ -35,9 +35,11 @@ export function DashboardPage() {
     <div className="space-y-5">
       <AlertBanner excludeKeys={["risky_allocation_exceeded"]} />
 
-      <div className="space-y-2">
+      <div className="flex items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <MonthSelector month={month} onChange={setMonth} />
+        </div>
         <YearSelector years={years ?? [now.getFullYear()]} year={year} onChange={setYear} />
-        <MonthSelector month={month} onChange={setMonth} />
       </div>
 
       {isError && (
