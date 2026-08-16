@@ -186,6 +186,10 @@ Aurum is released under the [PolyForm Noncommercial License 1.0.0](LICENSE).
 
 In plain terms: you can read the code, self-host it, modify it, and use it for any personal, educational, or noncommercial purpose, for free, forever. What you can't do is take it (or a modified version of it) and sell it, host it as a paid service for others, or otherwise build a commercial product on top of it. This is **not** an OSI-approved open source license — it's *source-available*. See the [LICENSE](LICENSE) file for the exact terms, and open a [Discussion](../../discussions) if you have a use case you're not sure is covered.
 
+## ❤️ Support Aurum
+
+Aurum is free and always will be for personal use. If it's helped you get a handle on your money and you'd like to help it keep growing, a donation goes a long way: **[Donate via Lava](https://app.lava.top/782447112?tabId=donate)**.
+
 ---
 
 <div align="center">
