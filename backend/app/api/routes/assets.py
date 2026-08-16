@@ -23,6 +23,7 @@ def _to_read(asset: Asset) -> AssetRead:
         notes=asset.notes,
         capital_role=asset.capital_role,
         monthly_cash_flow=asset.monthly_cash_flow,
+        risk_level=asset.risk_level,
         current_value=latest.value if latest else 0,
         as_of_date=latest.as_of_date if latest else asset.created_at.date(),
     )
@@ -43,6 +44,7 @@ async def create_asset(payload: AssetCreate, session: AsyncSession = Depends(get
         notes=payload.notes,
         capital_role=payload.capital_role,
         monthly_cash_flow=payload.monthly_cash_flow,
+        risk_level=payload.risk_level,
     )
     session.add(asset)
     await session.flush()
