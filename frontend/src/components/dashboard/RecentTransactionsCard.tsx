@@ -1,0 +1,62 @@
+import { Link } from "react-router-dom";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { getCategoryIcon } from "@/lib/icons";
+import { formatCurrency, formatTransactionDate } from "@/lib/format";
+import { useTranslation } from "@/lib/i18n";
+import { useTransactions } from "@/hooks/useTransactions";
+
+export function RecentTransactionsCard() {
+  const { t } = useTranslation();
+  const { data, isLoading } = useTransactions({ page: 1, page_size: 6 });
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t("dashboard.recentTransactionsTitle")}</CardTitle>
+        <Link to="/transactions" className="text-xs font-medium text-series-1 hover:underline">
+          {t("dashboard.allTransactionsLink")}
+        </Link>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <p className="py-10 text-center text-sm text-text-muted">{t("common.loading")}</p>
+        ) : !data?.items.length ? (
+          <p className="py-10 text-center text-sm text-text-muted">{t("dashboard.noTransactionsYet")}</p>
+        ) : (
+          <ul className="divide-y divide-gridline">
+            {data.items.map((tx) => {
+              const Icon = getCategoryIcon(tx.category?.icon);
+              const isTransfer = tx.type === "transfer";
+              const isExpense = tx.type === "expense";
+              const color = tx.category?.color ?? "var(--text-muted)";
+              return (
+                <li key={tx.id} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
+                  <span
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
+                    style={{ backgroundColor: `${color}26` }}
+                  >
+                    <Icon size={15} style={{ color }} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm text-text-primary">{tx.description}</span>
+                    <span className="block text-xs text-text-muted">
+                      {formatTransactionDate(tx.date)} · {tx.account.name}
+                    </span>
+                  </span>
+                  <span
+                    className={`shrink-0 text-sm font-medium tabular-nums ${
+                      isTransfer ? "text-text-muted" : isExpense ? "text-text-primary" : "text-success"
+                    }`}
+                  >
+                    {isTransfer ? "" : isExpense ? "-" : "+"}
+                    {formatCurrency(Number(tx.amount))}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  );
+}

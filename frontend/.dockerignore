@@ -1,0 +1,14 @@
+# Without this file, `docker build` sends the whole frontend/ directory
+# (including node_modules, which can be 100+MB of host-platform-specific
+# native binaries) to the daemon, and the final `COPY . .` in the Dockerfile
+# copies it straight over the fresh, correct-platform `npm install` output
+# from the layer before it. Keep this in sync with .gitignore's intent even
+# though the two files serve different tools.
+node_modules
+dist
+.vite
+.git
+.env
+.env.*
+!.env.example
+.DS_Store

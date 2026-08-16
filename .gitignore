@@ -1,0 +1,47 @@
+# Env — everything named .env* is ignored except the checked-in template.
+# Covers .env, .env.local, .env.production, a stray .env.bak, etc.
+.env
+.env.*
+!.env.example
+
+# Local Docker Compose overrides commonly used to inject secrets/ports
+# without touching the tracked docker-compose.yml.
+docker-compose.override.yml
+
+# TLS/SSH keys, in case a reverse-proxy cert ends up dropped in the repo dir.
+*.pem
+*.key
+*.crt
+id_rsa
+id_ed25519
+
+# Database dumps / exports — pg_dump output or a downloaded
+# "aurum-backup-*.json" from Settings landing in the repo by accident.
+# Both contain full financial data and must never be committed.
+*.sql
+*.dump
+*.sqlite3
+aurum-backup-*.json
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+
+# Node / frontend
+node_modules/
+dist/
+.vite/
+
+# Editors / OS / local tooling
+.DS_Store
+.idea/
+.vscode/
+.claude/
+
+# Postgres local volume (if bind-mounted during development)
+pgdata/
+
+# Other
+UPDATES.md

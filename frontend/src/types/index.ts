@@ -1,0 +1,353 @@
+export type AccountType = "checking" | "savings" | "credit_card" | "cash" | "investment" | "other";
+export type CategoryKind = "income" | "expense";
+export type TransactionType = "income" | "expense" | "transfer";
+export type RecurringFrequency = "weekly" | "monthly" | "yearly";
+
+export interface Account {
+  id: number;
+  name: string;
+  type: AccountType;
+  currency: string;
+  color: string | null;
+  is_archived: boolean;
+}
+
+// The Accounts management page's shape — /api/accounts' own endpoints add a
+// live `balance` (summed from transactions) that a nested Transaction.account
+// never carries. Keep the two separate rather than making `balance` optional
+// on `Account`, so a stray `tx.account.balance` read is a compile error, not
+// a silent `undefined` at runtime.
+export interface AccountWithBalance extends Account {
+  balance: string;
+}
+
+export interface AccountInput {
+  name: string;
+  type: AccountType;
+}
+
+export interface Category {
+  id: number;
+  name: string;
+  kind: CategoryKind;
+  icon: string | null;
+  color: string;
+  sort_order: number;
+  is_default: boolean;
+}
+
+export interface Transaction {
+  id: number;
+  account_id: number;
+  category_id: number | null;
+  transfer_account_id: number | null;
+  type: TransactionType;
+  amount: string;
+  description: string;
+  merchant: string | null;
+  notes: string | null;
+  date: string;
+  account: Account;
+  category: Category | null;
+}
+
+export interface TransactionPage {
+  items: Transaction[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export interface TransactionInput {
+  account_id: number;
+  category_id: number | null;
+  transfer_account_id: number | null;
+  type: TransactionType;
+  amount: string;
+  description: string;
+  merchant?: string | null;
+  notes?: string | null;
+  date: string;
+}
+
+export interface RecurringTransaction {
+  id: number;
+  account_id: number;
+  account_name: string;
+  category_id: number | null;
+  category_name: string | null;
+  category_color: string | null;
+  category_icon: string | null;
+  transfer_account_id: number | null;
+  transfer_account_name: string | null;
+  type: TransactionType;
+  amount: string;
+  description: string;
+  merchant: string | null;
+  notes: string | null;
+  frequency: RecurringFrequency;
+  anchor_date: string;
+  last_posted_date: string | null;
+  is_active: boolean;
+  next_due_date: string;
+  is_due: boolean;
+  days_until_due: number;
+}
+
+export interface RecurringTransactionInput {
+  account_id: number;
+  category_id: number | null;
+  transfer_account_id: number | null;
+  type: TransactionType;
+  amount: string;
+  description: string;
+  merchant?: string | null;
+  frequency: RecurringFrequency;
+  anchor_date: string;
+}
+
+export interface CategoryBreakdownItem {
+  category_id: number | null;
+  name: string;
+  color: string;
+  icon: string | null;
+  amount: string;
+  percent: number;
+}
+
+export interface DashboardSummary {
+  year: number;
+  month: number;
+  real_income: string;
+  spent: string;
+  net: string;
+  transferred_out: string;
+  spending_by_category: CategoryBreakdownItem[];
+}
+
+export type AssetClass = "investments" | "crypto" | "real_estate" | "vehicles" | "precious_metals" | "other";
+export type NetWorthRange = "30d" | "90d" | "1y" | "5y" | "all";
+export type CapitalRole = "income" | "neutral" | "drain";
+export type RiskLevel = "low" | "medium" | "high";
+
+export interface Asset {
+  id: number;
+  name: string;
+  asset_class: AssetClass;
+  currency: string;
+  notes: string | null;
+  capital_role: CapitalRole;
+  monthly_cash_flow: string | null;
+  risk_level: RiskLevel;
+  current_value: string;
+  as_of_date: string;
+}
+
+export interface AssetInput {
+  name: string;
+  asset_class: AssetClass;
+  currency?: string;
+  notes?: string | null;
+  capital_role?: CapitalRole;
+  monthly_cash_flow?: string | null;
+  risk_level?: RiskLevel;
+  value: string;
+  as_of_date: string;
+}
+
+export interface AssetUpdateInput {
+  name?: string;
+  asset_class?: AssetClass;
+  notes?: string | null;
+  capital_role?: CapitalRole;
+  monthly_cash_flow?: string | null;
+  risk_level?: RiskLevel;
+}
+
+export interface AssetValuationInput {
+  value: string;
+  as_of_date: string;
+}
+
+export interface NetWorthPoint {
+  date: string;
+  value: string;
+}
+
+export interface NetWorthBreakdownItem {
+  key: string;
+  name: string;
+  color: string;
+  icon: string;
+  amount: string;
+  percent: number;
+}
+
+export interface CapitalRoleSummary {
+  role: CapitalRole;
+  label: string;
+  color: string;
+  total_value: string;
+  monthly_cash_flow: string;
+  count: number;
+}
+
+export interface RiskLevelItem {
+  key: string;
+  name: string;
+  amount: string;
+  percent: number;
+}
+
+export interface RiskLevelSummary {
+  risk_level: RiskLevel;
+  label: string;
+  color: string;
+  total_value: string;
+  percent: number;
+  items: RiskLevelItem[];
+}
+
+export interface NetWorthSummary {
+  range: NetWorthRange;
+  current: string;
+  change_amount: string;
+  change_percent: number | null;
+  series: NetWorthPoint[];
+  breakdown: NetWorthBreakdownItem[];
+  capital_roles: CapitalRoleSummary[];
+  risk_levels: RiskLevelSummary[];
+}
+
+export interface CategorySpendingPoint {
+  year: number;
+  month: number;
+  amount: string;
+}
+
+export interface CategorySpendingReport {
+  category_id: number;
+  category_name: string;
+  category_color: string;
+  category_icon: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  total_amount: string;
+  transaction_count: number;
+  average_per_month: string;
+  series: CategorySpendingPoint[];
+}
+
+export interface CashFlowPoint {
+  year: number;
+  month: number;
+  income: string;
+  expense: string;
+  net: string;
+}
+
+export interface CashFlowResponse {
+  start_date: string | null;
+  end_date: string | null;
+  points: CashFlowPoint[];
+  total_income: string;
+  total_expense: string;
+  total_net: string;
+}
+
+export interface CategoryRankingItem {
+  category_id: number;
+  name: string;
+  color: string;
+  icon: string | null;
+  amount: string;
+  percent: number;
+  transaction_count: number;
+}
+
+export interface CategoryRankingReport {
+  start_date: string | null;
+  end_date: string | null;
+  total_amount: string;
+  items: CategoryRankingItem[];
+}
+
+export interface Goal {
+  id: number;
+  name: string;
+  target_amount: string;
+  target_date: string | null;
+  current_amount: string;
+  remaining: string;
+  percent: number;
+  is_reached: boolean;
+}
+
+export interface GoalInput {
+  name: string;
+  target_amount: string;
+  target_date: string | null;
+}
+
+export interface GoalContributionInput {
+  amount: string;
+  date: string;
+  note?: string | null;
+}
+
+export interface Budget {
+  id: number;
+  category_id: number;
+  category_name: string;
+  category_color: string;
+  category_icon: string | null;
+  monthly_limit: string;
+}
+
+export interface BudgetInput {
+  category_id: number;
+  monthly_limit: string;
+}
+
+export interface BudgetStatus {
+  budget_id: number;
+  category_id: number;
+  category_name: string;
+  category_color: string;
+  category_icon: string | null;
+  monthly_limit: string;
+  spent: string;
+  remaining: string;
+  percent: number;
+  is_over_budget: boolean;
+}
+
+export interface BudgetStatusResponse {
+  year: number;
+  month: number;
+  items: BudgetStatus[];
+}
+
+export interface AdviceItem {
+  key: string;
+  tone: "positive" | "neutral" | "warning";
+  params: Record<string, string | number>;
+}
+
+export interface AdviceResponse {
+  items: AdviceItem[];
+}
+
+export interface FinancialAlert {
+  key: string;
+  severity: string;
+  params: Record<string, number>;
+}
+
+export interface AppSettings {
+  currency: string;
+  negative_cash_flow_threshold_months: number;
+  net_worth_decline_threshold_months: number;
+  risky_allocation_threshold_percent: number;
+}
+

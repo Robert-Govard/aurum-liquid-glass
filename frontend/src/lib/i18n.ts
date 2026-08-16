@@ -1,0 +1,714 @@
+import { useSyncExternalStore } from "react";
+
+export type Language = "ru" | "en";
+
+const STORAGE_KEY = "aurum:language";
+
+const ru = {
+  "nav.dashboard": "Дашборд",
+  "nav.netWorth": "Капитал",
+  "nav.roi": "Доходность",
+  "nav.transactions": "Транзакции",
+  "nav.accounts": "Счета",
+  "nav.cashFlow": "Движение денег",
+  "nav.reports": "Отчёты",
+  "nav.budget": "Бюджет",
+  "nav.recurring": "Регулярные",
+  "nav.goals": "Цели",
+  "nav.advice": "Советы",
+  "nav.settings": "Настройки",
+  "nav.comingSoon": "скоро",
+
+  "sidebar.collapse": "Свернуть",
+  "sidebar.collapseMenu": "Свернуть меню",
+  "sidebar.expandMenu": "Развернуть меню",
+  "sidebar.closeMenu": "Закрыть меню",
+
+  "topbar.openMenu": "Открыть меню",
+
+  "common.loading": "Загрузка…",
+  "common.back": "Назад",
+  "common.next": "Далее",
+  "common.cancel": "Отмена",
+  "common.save": "Сохранить",
+  "common.saving": "Сохранение…",
+  "common.edit": "Изменить",
+  "common.delete": "Удалить",
+  "common.close": "Закрыть",
+  "common.add": "Добавить",
+  "common.pageOf": "Стр. {{page}} из {{total}}",
+  "common.totalCount": "{{count}} всего",
+  "common.perMonth": "/мес",
+  "common.allShort": "Всё",
+
+  "dashboard.errorLoading": "Не удалось загрузить данные дашборда. Проверьте, что backend запущен.",
+  "dashboard.statRealIncomeLabel": "Реальный доход",
+  "dashboard.statRealIncomeCaption": "зарплаты, возвраты",
+  "dashboard.statSpentLabel": "Расходы",
+  "dashboard.statSpentCaption": "без учёта переводов",
+  "dashboard.statNetLabel": "Баланс",
+  "dashboard.statNetCaption": "доход − расход",
+  "dashboard.statSavingsRateLabel": "Норма сбережений",
+  "dashboard.statSavingsRateCaption": "доля дохода, оставшаяся после расходов",
+  "dashboard.spendingByCategoryTitle": "Расходы по категориям",
+  "dashboard.noExpensesThisMonth": "За этот месяц пока нет расходов. Добавьте первую транзакцию на вкладке «Транзакции».",
+  "dashboard.recentTransactionsTitle": "Последние транзакции",
+  "dashboard.allTransactionsLink": "Все транзакции",
+  "dashboard.noTransactionsYet": "Транзакций пока нет.",
+
+  "netWorth.periodSuffix": "за период",
+  "netWorth.noChartData": "Пока нет данных для графика.",
+  "netWorth.assetsTitlePrefix": "Активы",
+  "netWorth.myAssetsTitle": "Мои активы",
+  "netWorth.confirmDeleteAsset": "Удалить актив «{{name}}»?",
+  "netWorth.capitalByType": "Капитал по типу",
+
+  "netWorth.assetClass.investments": "Инвестиции",
+  "netWorth.assetClass.crypto": "Криптовалюта",
+  "netWorth.assetClass.real_estate": "Недвижимость",
+  "netWorth.assetClass.vehicles": "Транспорт",
+  "netWorth.assetClass.precious_metals": "Драгметаллы",
+  "netWorth.assetClass.other": "Другое",
+  "netWorth.assetClass.cash": "Наличные",
+
+  "netWorth.capitalRole.income": "Доходный",
+  "netWorth.capitalRole.neutral": "Нейтральный",
+  "netWorth.capitalRole.drain": "Убыточный",
+
+  "netWorth.capitalRoleHint.income": "приносит деньги",
+  "netWorth.capitalRoleHint.neutral": "просто есть, не тянет и не даёт",
+  "netWorth.capitalRoleHint.drain": "тянет деньги каждый месяц",
+
+  "netWorth.capitalRoleFormHint.income": "приносит деньги — сдаётся в аренду и т.п.",
+  "netWorth.capitalRoleFormHint.neutral": "просто есть/используется — техника, мебель",
+  "netWorth.capitalRoleFormHint.drain": "тянет деньги каждый месяц — машина и т.п.",
+
+  "netWorth.riskAllocationTitle": "Капитал по уровню риска",
+  "netWorth.riskAllocationOfCapital": "от капитала",
+  "netWorth.riskLevel.low": "Низкий",
+  "netWorth.riskLevel.medium": "Средний",
+  "netWorth.riskLevel.high": "Высокий",
+  "netWorth.riskLevelFormHint.low": "риск потери минимален — депозиты, наличные, гособлигации",
+  "netWorth.riskLevelFormHint.medium": "умеренные колебания стоимости — недвижимость, диверсифицированные инвестиции",
+  "netWorth.riskLevelFormHint.high": "может значительно потерять в цене — крипта, отдельные акции, стартапы",
+
+  "netWorth.assetsTable.empty": "Активов пока нет. Добавьте инвестиции, крипту, недвижимость или другое имущество.",
+  "netWorth.assetsTable.asOf": "на {{date}}",
+  "netWorth.assetsTable.annualRoi": "{{percent}}% годовых",
+
+  "roi.calculator.title": "Калькулятор ROI",
+  "roi.calculator.investmentLabel": "Сумма инвестиции",
+  "roi.calculator.monthlyIncomeLabel": "Доход в месяц",
+  "roi.calculator.annualRoiLabel": "Доходность в год",
+  "roi.calculator.payback": "Окупится за {{years}} лет",
+  "roi.calculator.noPayback": "Не окупается — доход не покрывает вложение",
+  "roi.calculator.hint": "Впишите стоимость и ожидаемый доход в месяц, чтобы увидеть годовую доходность, срок окупаемости и прогноз на годы вперёд.",
+  "roi.calculator.projectionTitle": "Прогноз со сложным процентом",
+  "roi.calculator.projectionHint": "Если доходность {{percent}}% в год сохранится и весь доход будет реинвестироваться обратно в ту же инвестицию — расчёт только на основе введённых вами цифр, без данных из ваших активов.",
+  "roi.calculator.chartCompoundLabel": "Со сложным процентом",
+  "roi.calculator.chartSimpleLabel": "Без реинвестирования",
+  "roi.calculator.tableTitle": "Сравнение по годам",
+  "roi.calculator.colCompound": "Со сложным процентом",
+  "roi.calculator.colSimple": "Без реинвестирования",
+  "roi.calculator.colDifference": "Разница",
+  "roi.calculator.yearOne": "Через 1 год",
+  "roi.calculator.yearN": "Через {{years}} лет",
+
+  "netWorth.form.editTitle": "Изменить актив",
+  "netWorth.form.newTitle": "Новый актив",
+  "netWorth.form.nameLabel": "Название",
+  "netWorth.form.namePlaceholder": "Брокерский счёт, BTC, квартира…",
+  "netWorth.form.classLabel": "Категория",
+  "netWorth.form.currentValueLabel": "Текущая стоимость",
+  "netWorth.form.valueLabel": "Стоимость",
+  "netWorth.form.dateLabel": "Дата оценки",
+  "netWorth.form.roleLabel": "Тип капитала",
+  "netWorth.form.riskLevelLabel": "Уровень риска",
+  "netWorth.form.cashFlowLabel": "Денежный поток в месяц (необязательно)",
+  "netWorth.form.cashFlowPlaceholder": "800 для дохода, -150 для расхода",
+  "netWorth.form.cashFlowHint": "Ориентировочно — реальная сумма из месяца в месяц меняется, это не строгий учёт.",
+  "netWorth.form.notesLabel": "Заметки (необязательно)",
+  "netWorth.form.saveError": "Не удалось сохранить актив. Проверьте данные и попробуйте снова.",
+
+  "transactions.addButton": "Добавить",
+  "transactions.allTypes": "Все типы",
+  "transactions.expense": "Расходы",
+  "transactions.income": "Доходы",
+  "transactions.transfer": "Переводы",
+  "transactions.allCategories": "Все категории",
+  "transactions.failedToLoad": "Не удалось загрузить транзакции.",
+  "transactions.noneFound": "Транзакций не найдено.",
+  "transactions.confirmDelete": "Удалить транзакцию «{{description}}»?",
+  "transactions.transferSuffix": "→ перевод",
+  "transactions.sortDateDesc": "Сначала новые",
+  "transactions.sortAmountDesc": "Сумма: сначала больше",
+  "transactions.sortAmountAsc": "Сумма: сначала меньше",
+
+  "transactions.form.editTitle": "Изменить транзакцию",
+  "transactions.form.newTitle": "Новая транзакция",
+  "transactions.form.typeLabel": "Тип",
+  "transactions.form.typeExpense": "Расход",
+  "transactions.form.typeIncome": "Доход",
+  "transactions.form.typeTransfer": "Перевод",
+  "transactions.form.amountLabel": "Сумма",
+  "transactions.form.dateLabel": "Дата",
+  "transactions.form.descriptionLabel": "Описание",
+  "transactions.form.descriptionPlaceholder": "Продукты, зарплата, аренда…",
+  "transactions.form.accountLabel": "Счёт",
+  "transactions.form.selectAccount": "Выберите счёт",
+  "transactions.form.transferAccountLabel": "Счёт назначения",
+  "transactions.form.categoryLabel": "Категория",
+  "transactions.form.noCategory": "Без категории",
+  "transactions.form.merchantLabel": "Продавец (необязательно)",
+  "transactions.form.errorSelectAccount": "Выберите счёт",
+  "transactions.form.errorSelectDestination": "Выберите счёт назначения для перевода",
+  "transactions.form.errorSameAccount": "Счёт назначения должен отличаться от исходного счёта",
+  "transactions.form.saveError": "Не удалось сохранить транзакцию. Проверьте данные и попробуйте снова.",
+
+  "reports.categoryLabel": "Категория",
+  "reports.expenseGroup": "Расходы",
+  "reports.incomeGroup": "Доходы",
+  "reports.rangeAll": "Всё время",
+  "reports.range5y": "5 лет",
+  "reports.range12m": "12 мес",
+  "reports.rangeThisYear": "Этот год",
+  "reports.transactionsTitle": "Транзакции",
+  "reports.defaultChartTitle": "Расходы по категории",
+  "reports.averagePerMonth": "{{amount}}/мес в среднем",
+  "reports.noDataForPeriod": "Нет данных за выбранный период.",
+  "reports.categoryRankingTitle": "Топ категорий за период",
+  "reports.noRankingData": "Нет расходов за выбранный период.",
+
+  "settings.language": "Язык",
+  "settings.languageRussian": "Русский",
+  "settings.languageEnglish": "English",
+  "settings.currency": "Основная валюта",
+  "settings.currencyHint":
+    "Меняет только отображение сумм — уже введённые значения не пересчитываются и не конвертируются.",
+  "settings.alertsTitle": "Проактивные предупреждения",
+  "settings.alertsHint": "Через сколько месяцев подряд показывать предупреждение на Dashboard и «Капитал».",
+  "settings.negativeCashFlowThresholdLabel": "Расходы превышают доходы, мес. подряд",
+  "settings.netWorthDeclineThresholdLabel": "Капитал снижается, мес. подряд",
+  "settings.riskyAllocationThresholdLabel": "Допустимая доля рискового капитала, %",
+
+  "backup.title": "Резервное копирование",
+  "backup.description":
+    "Экспортируйте все свои данные (счета, категории, транзакции, активы) в один JSON-файл и храните его в надёжном месте. Позже этот файл можно загрузить обратно, чтобы полностью восстановить данные — например, после переустановки или переезда на другой сервер.",
+  "backup.exportButton": "Экспортировать бэкап",
+  "backup.exporting": "Экспорт…",
+  "backup.importButton": "Восстановить из файла",
+  "backup.importing": "Восстановление…",
+  "backup.exportSuccess": "Бэкап скачан.",
+  "backup.exportError": "Не удалось скачать бэкап.",
+  "backup.importSuccess": "Данные восстановлены из бэкапа.",
+  "backup.importError": "Не удалось восстановить бэкап.",
+  "backup.invalidFile": "Файл повреждён или не является JSON-бэкапом Aurum.",
+  "backup.confirmImport":
+    "Восстановить данные из «{{filename}}»?\n\nЭто ПОЛНОСТЬЮ заменит все текущие счета, категории, транзакции и активы данными из файла. Отменить это действие нельзя — если хотите сохранить текущие данные, сначала сделайте экспорт.",
+  "backup.footerWarning":
+    "Восстановление полностью заменяет текущие данные содержимым файла — это нельзя отменить.",
+
+  "insights.negativeCashFlow": "Расходы превышают доходы {{months}} мес. подряд (по последним завершённым месяцам)",
+  "insights.netWorthDecline": "Капитал снижается {{months}} мес. подряд",
+  "insights.budgetExceededOne": "Превышен бюджет в 1 категории в этом месяце",
+  "insights.budgetExceeded": "Превышен бюджет в {{count}} категориях в этом месяце",
+  "insights.riskyAllocationExceeded": "Рискованная часть капитала — {{percent}}%, превышает установленный лимит {{threshold}}%",
+
+  "budget.empty": "Бюджетов пока нет. Задайте лимит для категории расходов, чтобы отслеживать её здесь.",
+  "budget.remaining": "{{amount}} осталось",
+  "budget.overBy": "Превышен на {{amount}}",
+  "budget.confirmDelete": "Удалить бюджет для «{{name}}»?",
+  "budget.form.newTitle": "Новый бюджет",
+  "budget.form.editTitle": "Изменить бюджет",
+  "budget.form.categoryLabel": "Категория",
+  "budget.form.limitLabel": "Лимит в месяц",
+  "budget.form.noCategoriesAvailable": "Все категории расходов уже добавлены.",
+  "budget.form.saveError": "Не удалось сохранить бюджет. Проверьте данные и попробуйте снова.",
+
+  "advice.empty": "Пока нет советов — недостаточно данных, или всё в порядке.",
+  "advice.risingCategory":
+    "Траты на {{category}} выросли на {{percent}}% по сравнению со средним за последние 3 месяца: {{current}} против {{average}}.",
+  "advice.unbudgetedTopCategory":
+    "На «{{category}}» уходит больше всего в этом месяце — {{amount}}. Задайте для неё бюджет на вкладке «Бюджет», чтобы отслеживать лимит.",
+  "advice.savingsRateTrend": "Норма сбережений: {{rate}}% ({{diff}} п.п. к прошлому месяцу).",
+
+  "goal.empty": "Целей пока нет. Добавьте цель и начните копить.",
+  "goal.remaining": "{{amount}} осталось",
+  "goal.remainingWithDate": "{{amount}} осталось · до {{date}}",
+  "goal.reached": "Цель достигнута!",
+  "goal.contributeLabel": "Добавить взнос",
+  "goal.confirmDelete": "Удалить цель «{{name}}»?",
+  "goal.form.newTitle": "Новая цель",
+  "goal.form.editTitle": "Изменить цель",
+  "goal.form.nameLabel": "Название",
+  "goal.form.namePlaceholder": "Подушка безопасности, отпуск, новый ноутбук…",
+  "goal.form.targetAmountLabel": "Целевая сумма",
+  "goal.form.targetDateLabel": "Дата (необязательно)",
+  "goal.form.saveError": "Не удалось сохранить цель. Проверьте данные и попробуйте снова.",
+  "goal.contribution.title": "Взнос: {{name}}",
+  "goal.contribution.amountLabel": "Сумма",
+  "goal.contribution.amountPlaceholder": "100 для взноса, -50 для снятия",
+  "goal.contribution.dateLabel": "Дата",
+  "goal.contribution.hint": "Можно указать отрицательную сумму, если пришлось снять деньги с цели.",
+  "goal.contribution.saveError": "Не удалось сохранить взнос. Проверьте данные и попробуйте снова.",
+
+  "recurring.empty":
+    "Регулярных платежей пока нет. Добавьте зарплату, аренду или подписку, чтобы не заводить их вручную каждый раз.",
+  "recurring.postLabel": "Провести платёж",
+  "recurring.confirmDelete": "Удалить регулярный платёж «{{name}}»?",
+  "recurring.overdueDays": "Просрочено на {{days}} дн.",
+  "recurring.dueToday": "Пора оплатить сегодня",
+  "recurring.dueInDays": "Через {{days}} дн. · {{date}}",
+  "recurring.frequency.weekly": "Еженедельно",
+  "recurring.frequency.monthly": "Ежемесячно",
+  "recurring.frequency.yearly": "Ежегодно",
+  "recurring.form.newTitle": "Новый регулярный платёж",
+  "recurring.form.editTitle": "Изменить регулярный платёж",
+  "recurring.form.frequencyLabel": "Периодичность",
+  "recurring.form.anchorDateLabel": "Дата начала",
+  "recurring.form.saveError": "Не удалось сохранить регулярный платёж. Проверьте данные и попробуйте снова.",
+
+  "account.empty": "Счетов пока нет. Добавьте первый — например, текущий счёт или наличные.",
+  "account.showArchived": "Показывать архивные",
+  "account.archivedBadge": "архив",
+  "account.archiveLabel": "Архивировать",
+  "account.unarchiveLabel": "Вернуть из архива",
+  "account.confirmDelete":
+    "Удалить счёт «{{name}}»?\n\nЭто безвозвратно удалит и ВСЕ транзакции по этому счёту. Если хотите сохранить историю, заархивируйте счёт вместо удаления.",
+  "account.type.checking": "Текущий счёт",
+  "account.type.savings": "Накопительный счёт",
+  "account.type.credit_card": "Кредитная карта",
+  "account.type.cash": "Наличные",
+  "account.type.investment": "Инвестиционный счёт",
+  "account.type.other": "Другое",
+  "account.form.newTitle": "Новый счёт",
+  "account.form.editTitle": "Изменить счёт",
+  "account.form.nameLabel": "Название",
+  "account.form.namePlaceholder": "Основной счёт, накопления, наличные…",
+  "account.form.typeLabel": "Тип",
+  "account.form.saveError": "Не удалось сохранить счёт. Проверьте данные и попробуйте снова.",
+
+  "cashFlow.income": "Доход",
+  "cashFlow.expense": "Расход",
+  "cashFlow.net": "Баланс",
+  "cashFlow.noData": "Нет данных за выбранный период.",
+
+  // Default seeded categories (backend/app/db/seed.py) — there's no
+  // category-management UI yet, so every category currently in the
+  // database is one of these; translateCategoryName() matches on the exact
+  // seeded English name and falls through unchanged for anything else
+  // (a renamed default, or a future custom category).
+  "category.housingUtilities": "Жильё и коммуналка",
+  "category.groceries": "Продукты",
+  "category.diningOut": "Кафе и рестораны",
+  "category.transportation": "Транспорт",
+  "category.healthFitness": "Здоровье и фитнес",
+  "category.shopping": "Покупки",
+  "category.entertainment": "Развлечения",
+  "category.subscriptions": "Подписки",
+  "category.salary": "Зарплата",
+  "category.freelance": "Фриланс",
+  "category.investments": "Инвестиции",
+  "category.gifts": "Подарки",
+  "category.otherIncome": "Прочий доход",
+
+  "months.jan": "Янв",
+  "months.feb": "Фев",
+  "months.mar": "Мар",
+  "months.apr": "Апр",
+  "months.may": "Май",
+  "months.jun": "Июн",
+  "months.jul": "Июл",
+  "months.aug": "Авг",
+  "months.sep": "Сен",
+  "months.oct": "Окт",
+  "months.nov": "Ноя",
+  "months.dec": "Дек",
+};
+
+const en: Record<keyof typeof ru, string> = {
+  "nav.dashboard": "Dashboard",
+  "nav.netWorth": "Net Worth",
+  "nav.roi": "Returns",
+  "nav.transactions": "Transactions",
+  "nav.accounts": "Accounts",
+  "nav.cashFlow": "Cash Flow",
+  "nav.reports": "Reports",
+  "nav.budget": "Budget",
+  "nav.recurring": "Recurring",
+  "nav.goals": "Goals",
+  "nav.advice": "Advice",
+  "nav.settings": "Settings",
+  "nav.comingSoon": "soon",
+
+  "sidebar.collapse": "Collapse",
+  "sidebar.collapseMenu": "Collapse menu",
+  "sidebar.expandMenu": "Expand menu",
+  "sidebar.closeMenu": "Close menu",
+
+  "topbar.openMenu": "Open menu",
+
+  "common.loading": "Loading…",
+  "common.back": "Back",
+  "common.next": "Next",
+  "common.cancel": "Cancel",
+  "common.save": "Save",
+  "common.saving": "Saving…",
+  "common.edit": "Edit",
+  "common.delete": "Delete",
+  "common.close": "Close",
+  "common.add": "Add",
+  "common.pageOf": "Page {{page}} of {{total}}",
+  "common.totalCount": "{{count}} total",
+  "common.perMonth": "/mo",
+  "common.allShort": "All",
+
+  "dashboard.errorLoading": "Failed to load dashboard data. Check that the backend is running.",
+  "dashboard.statRealIncomeLabel": "Real income",
+  "dashboard.statRealIncomeCaption": "paychecks, refunds",
+  "dashboard.statSpentLabel": "Spent",
+  "dashboard.statSpentCaption": "excludes transfers",
+  "dashboard.statNetLabel": "Net",
+  "dashboard.statNetCaption": "income − spend",
+  "dashboard.statSavingsRateLabel": "Savings rate",
+  "dashboard.statSavingsRateCaption": "share of income left after spending",
+  "dashboard.spendingByCategoryTitle": "Spending by category",
+  "dashboard.noExpensesThisMonth": "No expenses yet this month. Add your first transaction on the Transactions tab.",
+  "dashboard.recentTransactionsTitle": "Recent transactions",
+  "dashboard.allTransactionsLink": "All transactions",
+  "dashboard.noTransactionsYet": "No transactions yet.",
+
+  "netWorth.periodSuffix": "over period",
+  "netWorth.noChartData": "No data for the chart yet.",
+  "netWorth.assetsTitlePrefix": "Assets",
+  "netWorth.myAssetsTitle": "My assets",
+  "netWorth.confirmDeleteAsset": "Delete asset “{{name}}”?",
+  "netWorth.capitalByType": "Capital by type",
+
+  "netWorth.assetClass.investments": "Investments",
+  "netWorth.assetClass.crypto": "Crypto",
+  "netWorth.assetClass.real_estate": "Real estate",
+  "netWorth.assetClass.vehicles": "Vehicles",
+  "netWorth.assetClass.precious_metals": "Precious metals",
+  "netWorth.assetClass.other": "Other",
+  "netWorth.assetClass.cash": "Cash",
+
+  "netWorth.capitalRole.income": "Income",
+  "netWorth.capitalRole.neutral": "Neutral",
+  "netWorth.capitalRole.drain": "Drain",
+
+  "netWorth.capitalRoleHint.income": "brings in money",
+  "netWorth.capitalRoleHint.neutral": "just sits there — no gain, no drain",
+  "netWorth.capitalRoleHint.drain": "costs money every month",
+
+  "netWorth.capitalRoleFormHint.income": "brings in money — rented out, etc.",
+  "netWorth.capitalRoleFormHint.neutral": "just there / in use — electronics, furniture",
+  "netWorth.capitalRoleFormHint.drain": "costs money every month — a car, etc.",
+
+  "netWorth.riskAllocationTitle": "Capital by risk level",
+  "netWorth.riskAllocationOfCapital": "of capital",
+  "netWorth.riskLevel.low": "Low",
+  "netWorth.riskLevel.medium": "Medium",
+  "netWorth.riskLevel.high": "High",
+  "netWorth.riskLevelFormHint.low": "minimal risk of loss — deposits, cash, government bonds",
+  "netWorth.riskLevelFormHint.medium": "moderate value swings — real estate, diversified investments",
+  "netWorth.riskLevelFormHint.high": "can lose significant value — crypto, individual stocks, startups",
+
+  "netWorth.assetsTable.empty": "No assets yet. Add investments, crypto, real estate, or other property.",
+  "netWorth.assetsTable.asOf": "as of {{date}}",
+  "netWorth.assetsTable.annualRoi": "{{percent}}%/year",
+
+  "roi.calculator.title": "ROI Calculator",
+  "roi.calculator.investmentLabel": "Investment amount",
+  "roi.calculator.monthlyIncomeLabel": "Monthly income",
+  "roi.calculator.annualRoiLabel": "Annual return",
+  "roi.calculator.payback": "Pays back in {{years}} years",
+  "roi.calculator.noPayback": "Doesn't pay back — income doesn't cover the investment",
+  "roi.calculator.hint": "Enter the price and expected monthly income to see the annual return, payback period, and a multi-year projection.",
+  "roi.calculator.projectionTitle": "Compound interest projection",
+  "roi.calculator.projectionHint": "If the {{percent}}% annual return holds and all income is reinvested back into the same investment — based only on the numbers you entered, not your tracked assets.",
+  "roi.calculator.chartCompoundLabel": "With compounding",
+  "roi.calculator.chartSimpleLabel": "Without reinvesting",
+  "roi.calculator.tableTitle": "Year-by-year comparison",
+  "roi.calculator.colCompound": "With compounding",
+  "roi.calculator.colSimple": "Without reinvesting",
+  "roi.calculator.colDifference": "Difference",
+  "roi.calculator.yearOne": "In 1 year",
+  "roi.calculator.yearN": "In {{years}} years",
+
+  "netWorth.form.editTitle": "Edit asset",
+  "netWorth.form.newTitle": "New asset",
+  "netWorth.form.nameLabel": "Name",
+  "netWorth.form.namePlaceholder": "Brokerage account, BTC, apartment…",
+  "netWorth.form.classLabel": "Category",
+  "netWorth.form.currentValueLabel": "Current value",
+  "netWorth.form.valueLabel": "Value",
+  "netWorth.form.dateLabel": "Valuation date",
+  "netWorth.form.roleLabel": "Capital type",
+  "netWorth.form.riskLevelLabel": "Risk level",
+  "netWorth.form.cashFlowLabel": "Monthly cash flow (optional)",
+  "netWorth.form.cashFlowPlaceholder": "800 for income, -150 for expense",
+  "netWorth.form.cashFlowHint": "Approximate — the real amount varies month to month, this isn't strict accounting.",
+  "netWorth.form.notesLabel": "Notes (optional)",
+  "netWorth.form.saveError": "Failed to save the asset. Check the data and try again.",
+
+  "transactions.addButton": "Add",
+  "transactions.allTypes": "All types",
+  "transactions.expense": "Expenses",
+  "transactions.income": "Income",
+  "transactions.transfer": "Transfers",
+  "transactions.allCategories": "All categories",
+  "transactions.failedToLoad": "Failed to load transactions.",
+  "transactions.noneFound": "No transactions found.",
+  "transactions.confirmDelete": "Delete transaction “{{description}}”?",
+  "transactions.transferSuffix": "→ transfer",
+  "transactions.sortDateDesc": "Newest first",
+  "transactions.sortAmountDesc": "Amount: high to low",
+  "transactions.sortAmountAsc": "Amount: low to high",
+
+  "transactions.form.editTitle": "Edit transaction",
+  "transactions.form.newTitle": "New transaction",
+  "transactions.form.typeLabel": "Type",
+  "transactions.form.typeExpense": "Expense",
+  "transactions.form.typeIncome": "Income",
+  "transactions.form.typeTransfer": "Transfer",
+  "transactions.form.amountLabel": "Amount",
+  "transactions.form.dateLabel": "Date",
+  "transactions.form.descriptionLabel": "Description",
+  "transactions.form.descriptionPlaceholder": "Groceries, salary, rent…",
+  "transactions.form.accountLabel": "Account",
+  "transactions.form.selectAccount": "Select account",
+  "transactions.form.transferAccountLabel": "Destination account",
+  "transactions.form.categoryLabel": "Category",
+  "transactions.form.noCategory": "No category",
+  "transactions.form.merchantLabel": "Merchant (optional)",
+  "transactions.form.errorSelectAccount": "Select an account",
+  "transactions.form.errorSelectDestination": "Select a destination account for the transfer",
+  "transactions.form.errorSameAccount": "The destination account must be different from the source account",
+  "transactions.form.saveError": "Failed to save the transaction. Check the data and try again.",
+
+  "reports.categoryLabel": "Category",
+  "reports.expenseGroup": "Expenses",
+  "reports.incomeGroup": "Income",
+  "reports.rangeAll": "All time",
+  "reports.range5y": "5 years",
+  "reports.range12m": "12 mo",
+  "reports.rangeThisYear": "This year",
+  "reports.transactionsTitle": "Transactions",
+  "reports.defaultChartTitle": "Spending by category",
+  "reports.averagePerMonth": "{{amount}}/mo average",
+  "reports.noDataForPeriod": "No data for the selected period.",
+  "reports.categoryRankingTitle": "Top categories for period",
+  "reports.noRankingData": "No expenses for the selected period.",
+
+  "settings.language": "Language",
+  "settings.languageRussian": "Русский",
+  "settings.languageEnglish": "English",
+  "settings.currency": "Primary currency",
+  "settings.currencyHint":
+    "Only changes how amounts are displayed — values you've already entered aren't recalculated or converted.",
+  "settings.alertsTitle": "Proactive alerts",
+  "settings.alertsHint": "How many consecutive months before showing a warning on Dashboard and Net Worth.",
+  "settings.negativeCashFlowThresholdLabel": "Expenses exceed income, consecutive months",
+  "settings.netWorthDeclineThresholdLabel": "Net worth declining, consecutive months",
+  "settings.riskyAllocationThresholdLabel": "Max % of capital allowed at risk",
+
+  "backup.title": "Backup & Restore",
+  "backup.description":
+    "Export all your data (accounts, categories, transactions, assets) into a single JSON file and keep it somewhere safe. Later, you can load that file back in to fully restore your data — for example, after a reinstall or moving to a different server.",
+  "backup.exportButton": "Export backup",
+  "backup.exporting": "Exporting…",
+  "backup.importButton": "Restore from file",
+  "backup.importing": "Restoring…",
+  "backup.exportSuccess": "Backup downloaded.",
+  "backup.exportError": "Failed to download the backup.",
+  "backup.importSuccess": "Data restored from backup.",
+  "backup.importError": "Failed to restore the backup.",
+  "backup.invalidFile": "The file is corrupted or is not an Aurum JSON backup.",
+  "backup.confirmImport":
+    "Restore data from “{{filename}}”?\n\nThis will COMPLETELY replace all current accounts, categories, transactions, and assets with the data from the file. This action cannot be undone — if you want to keep your current data, export it first.",
+  "backup.footerWarning":
+    "Restoring completely replaces your current data with the file's contents — this cannot be undone.",
+
+  "insights.negativeCashFlow": "Expenses have exceeded income for {{months}} months in a row (based on the last completed months)",
+  "insights.netWorthDecline": "Net worth has been declining for {{months}} months in a row",
+  "insights.budgetExceededOne": "Budget exceeded in 1 category this month",
+  "insights.budgetExceeded": "Budget exceeded in {{count}} categories this month",
+  "insights.riskyAllocationExceeded": "Risky share of capital is {{percent}}%, above your {{threshold}}% limit",
+
+  "budget.empty": "No budgets yet. Set a limit for an expense category to start tracking it here.",
+  "budget.remaining": "{{amount}} left",
+  "budget.overBy": "Over by {{amount}}",
+  "budget.confirmDelete": "Delete the budget for “{{name}}”?",
+  "budget.form.newTitle": "New budget",
+  "budget.form.editTitle": "Edit budget",
+  "budget.form.categoryLabel": "Category",
+  "budget.form.limitLabel": "Monthly limit",
+  "budget.form.noCategoriesAvailable": "Every expense category already has a budget.",
+  "budget.form.saveError": "Failed to save the budget. Check the data and try again.",
+
+  "advice.empty": "No advice right now — not enough data, or everything looks fine.",
+  "advice.risingCategory":
+    "Spending on {{category}} is up {{percent}}% vs. the average of the last 3 months: {{current}} vs {{average}}.",
+  "advice.unbudgetedTopCategory":
+    "\"{{category}}\" is your biggest expense this month — {{amount}}. Set a budget for it on the Budget tab to track a limit.",
+  "advice.savingsRateTrend": "Savings rate: {{rate}}% ({{diff}} pts vs last month).",
+
+  "goal.empty": "No goals yet. Add one and start saving.",
+  "goal.remaining": "{{amount}} left",
+  "goal.remainingWithDate": "{{amount}} left · by {{date}}",
+  "goal.reached": "Goal reached!",
+  "goal.contributeLabel": "Add contribution",
+  "goal.confirmDelete": "Delete the goal “{{name}}”?",
+  "goal.form.newTitle": "New goal",
+  "goal.form.editTitle": "Edit goal",
+  "goal.form.nameLabel": "Name",
+  "goal.form.namePlaceholder": "Emergency fund, vacation, new laptop…",
+  "goal.form.targetAmountLabel": "Target amount",
+  "goal.form.targetDateLabel": "Target date (optional)",
+  "goal.form.saveError": "Failed to save the goal. Check the data and try again.",
+  "goal.contribution.title": "Contribution: {{name}}",
+  "goal.contribution.amountLabel": "Amount",
+  "goal.contribution.amountPlaceholder": "100 to deposit, -50 to withdraw",
+  "goal.contribution.dateLabel": "Date",
+  "goal.contribution.hint": "You can enter a negative amount if you had to withdraw from the goal.",
+  "goal.contribution.saveError": "Failed to save the contribution. Check the data and try again.",
+
+  "recurring.empty":
+    "No recurring transactions yet. Add your salary, rent, or a subscription so you don't have to enter it manually every time.",
+  "recurring.postLabel": "Post now",
+  "recurring.confirmDelete": "Delete the recurring transaction “{{name}}”?",
+  "recurring.overdueDays": "{{days}} days overdue",
+  "recurring.dueToday": "Due today",
+  "recurring.dueInDays": "In {{days}} days · {{date}}",
+  "recurring.frequency.weekly": "Weekly",
+  "recurring.frequency.monthly": "Monthly",
+  "recurring.frequency.yearly": "Yearly",
+  "recurring.form.newTitle": "New recurring transaction",
+  "recurring.form.editTitle": "Edit recurring transaction",
+  "recurring.form.frequencyLabel": "Frequency",
+  "recurring.form.anchorDateLabel": "Start date",
+  "recurring.form.saveError": "Failed to save the recurring transaction. Check the data and try again.",
+
+  "account.empty": "No accounts yet. Add your first one — a checking account or cash, for example.",
+  "account.showArchived": "Show archived",
+  "account.archivedBadge": "archived",
+  "account.archiveLabel": "Archive",
+  "account.unarchiveLabel": "Unarchive",
+  "account.confirmDelete":
+    "Delete the account “{{name}}”?\n\nThis will permanently delete ALL transactions on this account too. If you want to keep the history, archive the account instead of deleting it.",
+  "account.type.checking": "Checking",
+  "account.type.savings": "Savings",
+  "account.type.credit_card": "Credit card",
+  "account.type.cash": "Cash",
+  "account.type.investment": "Investment",
+  "account.type.other": "Other",
+  "account.form.newTitle": "New account",
+  "account.form.editTitle": "Edit account",
+  "account.form.nameLabel": "Name",
+  "account.form.namePlaceholder": "Main account, savings, cash…",
+  "account.form.typeLabel": "Type",
+  "account.form.saveError": "Failed to save the account. Check the data and try again.",
+
+  "cashFlow.income": "Income",
+  "cashFlow.expense": "Expense",
+  "cashFlow.net": "Net",
+  "cashFlow.noData": "No data for the selected period.",
+
+  "category.housingUtilities": "Housing & Utilities",
+  "category.groceries": "Groceries",
+  "category.diningOut": "Dining Out",
+  "category.transportation": "Transportation",
+  "category.healthFitness": "Health & Fitness",
+  "category.shopping": "Shopping",
+  "category.entertainment": "Entertainment",
+  "category.subscriptions": "Subscriptions",
+  "category.salary": "Salary",
+  "category.freelance": "Freelance",
+  "category.investments": "Investments",
+  "category.gifts": "Gifts",
+  "category.otherIncome": "Other Income",
+
+  "months.jan": "Jan",
+  "months.feb": "Feb",
+  "months.mar": "Mar",
+  "months.apr": "Apr",
+  "months.may": "May",
+  "months.jun": "Jun",
+  "months.jul": "Jul",
+  "months.aug": "Aug",
+  "months.sep": "Sep",
+  "months.oct": "Oct",
+  "months.nov": "Nov",
+  "months.dec": "Dec",
+};
+
+const translations: Record<Language, Record<keyof typeof ru, string>> = { ru, en };
+
+export type TranslationKey = keyof typeof ru;
+
+function readInitialLanguage(): Language {
+  const stored = localStorage.getItem(STORAGE_KEY);
+  if (stored === "ru" || stored === "en") return stored;
+  return "ru";
+}
+
+let currentLanguage: Language = readInitialLanguage();
+// The primary display currency (ISO 4217 code, e.g. "USD"/"UAH"/"EUR"). Unlike
+// language this isn't client-only — it's persisted server-side (GET/PATCH
+// /api/settings) since it also drives what new accounts/assets are created
+// with. App.tsx syncs this from the server once on boot via setCurrency();
+// until that resolves, formatCurrency() falls back to this default.
+let currentCurrency = "USD";
+const listeners = new Set<() => void>();
+
+export function getLanguage(): Language {
+  return currentLanguage;
+}
+
+export function setLanguage(language: Language): void {
+  if (language === currentLanguage) return;
+  currentLanguage = language;
+  localStorage.setItem(STORAGE_KEY, language);
+  listeners.forEach((listener) => listener());
+}
+
+export function getCurrency(): string {
+  return currentCurrency;
+}
+
+/** Updates the reactive local mirror only — call this after the server
+ * fetch/update succeeds, not in place of it. */
+export function setCurrency(currency: string): void {
+  if (currency === currentCurrency) return;
+  currentCurrency = currency;
+  listeners.forEach((listener) => listener());
+}
+
+function subscribe(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+function interpolate(template: string, params?: Record<string, string | number>): string {
+  if (!params) return template;
+  return template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
+    const value = params[key];
+    return value === undefined ? match : String(value);
+  });
+}
+
+/** Usable outside React (e.g. api/ modules) — reads the current language at call time. */
+export function t(key: TranslationKey, params?: Record<string, string | number>): string {
+  return interpolate(translations[currentLanguage][key], params);
+}
+
+/** Subscribes the component to language AND currency changes so it re-renders
+ * on either toggle — most components that call formatCurrency() already call
+ * this hook for text, so that alone is enough to pick up a fresh currency on
+ * their next render even without reading `currency` from the return value. */
+export function useTranslation() {
+  const language = useSyncExternalStore(subscribe, () => currentLanguage);
+  const currency = useSyncExternalStore(subscribe, () => currentCurrency);
+  return { t, language, setLanguage, currency, setCurrency };
+}
