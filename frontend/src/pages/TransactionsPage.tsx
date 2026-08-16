@@ -17,14 +17,18 @@ import type { Transaction, TransactionType } from "@/types";
 
 const PAGE_SIZE = 20;
 
-/** Clamp a query-param month to 1-12, falling back to `fallback` for
- * anything missing or out of range (e.g. a hand-edited URL). */
+/** Parses a query-param month, falling back to `fallback` for anything
+ * missing or out of range (e.g. a hand-edited URL). Must check `value`
+ * for null before `Number()` — `Number(null)` is 0, not NaN, so a missing
+ * param would otherwise silently pass the integer check and clamp to 1. */
 function parseMonthParam(value: string | null, fallback: number): number {
+  if (value === null) return fallback;
   const parsed = Number(value);
-  return Number.isInteger(parsed) ? Math.min(12, Math.max(1, parsed)) : fallback;
+  return Number.isInteger(parsed) && parsed >= 1 && parsed <= 12 ? parsed : fallback;
 }
 
 function parseYearParam(value: string | null, fallback: number): number {
+  if (value === null) return fallback;
   const parsed = Number(value);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
