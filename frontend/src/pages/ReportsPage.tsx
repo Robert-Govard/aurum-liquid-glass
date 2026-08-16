@@ -3,56 +3,39 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Label, Select } from "@/components/ui/Input";
 import { PillSelector } from "@/components/layout/PillSelector";
+import { YearRangeSelector } from "@/components/layout/YearSelector";
 import { CategoryRankingCard } from "@/components/reports/CategoryRankingCard";
 import { CategorySpendingChart } from "@/components/reports/CategorySpendingChart";
 import { TransactionsTable } from "@/components/transactions/TransactionsTable";
 import { TransactionFormModal } from "@/components/transactions/TransactionFormModal";
 import { useCategories } from "@/hooks/useCategories";
 import { useCategoryRanking, useCategorySpendingReport } from "@/hooks/useReports";
-import { useDeleteTransaction, useTransactions } from "@/hooks/useTransactions";
+import { useDeleteTransaction, useTransactions, useTransactionYears } from "@/hooks/useTransactions";
 import type { TransactionSort } from "@/api/transactions";
+import { computeRange, type CustomYearRange, type RangePreset } from "@/lib/dateRange";
 import { useTranslation } from "@/lib/i18n";
 import { translateCategoryName } from "@/lib/categoryLabels";
 import type { Transaction } from "@/types";
-
-type RangePreset = "all" | "5y" | "12m" | "this_year";
-
-function isoDate(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
-
-function computeRange(preset: RangePreset): { startDate?: string; endDate?: string } {
-  const today = new Date();
-  const end = isoDate(today);
-  switch (preset) {
-    case "all":
-      return {};
-    case "this_year":
-      return { startDate: `${today.getFullYear()}-01-01`, endDate: end };
-    case "12m": {
-      const start = new Date(today.getFullYear(), today.getMonth() - 11, 1);
-      return { startDate: isoDate(start), endDate: end };
-    }
-    case "5y": {
-      const start = new Date(today.getFullYear() - 5, today.getMonth(), 1);
-      return { startDate: isoDate(start), endDate: end };
-    }
-  }
-}
 
 const PAGE_SIZE = 20;
 
 export function ReportsPage() {
   const { t } = useTranslation();
+  const now = new Date();
   const RANGE_OPTIONS: Array<{ value: RangePreset; label: string }> = [
     { value: "all", label: t("reports.rangeAll") },
-    { value: "5y", label: t("reports.range5y") },
-    { value: "12m", label: t("reports.range12m") },
     { value: "this_year", label: t("reports.rangeThisYear") },
+    { value: "5y", label: t("reports.range5y") },
+    { value: "custom", label: t("reports.rangeCustom") },
   ];
   const { data: categories } = useCategories();
+  const { data: years } = useTransactionYears();
   const [categoryId, setCategoryId] = useState<number | null>(null);
   const [range, setRange] = useState<RangePreset>("all");
+  const [customRange, setCustomRange] = useState<CustomYearRange>({
+    fromYear: now.getFullYear(),
+    toYear: now.getFullYear(),
+  });
   const [sort, setSort] = useState<TransactionSort>("date_desc");
   const [page, setPage] = useState(1);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
@@ -65,7 +48,7 @@ export function ReportsPage() {
     }
   }, [categories, categoryId]);
 
-  const { startDate, endDate } = computeRange(range);
+  const { startDate, endDate } = computeRange(range, customRange);
   const { data: ranking, isLoading: isRankingLoading } = useCategoryRanking("expense", startDate, endDate);
   const { data: report, isLoading: isReportLoading } = useCategorySpendingReport(categoryId, startDate, endDate);
   const { data: transactions, isLoading: isTransactionsLoading } = useTransactions({
@@ -126,14 +109,27 @@ export function ReportsPage() {
             )}
           </Select>
         </div>
-        <PillSelector
-          options={RANGE_OPTIONS}
-          value={range}
-          onChange={(value) => {
-            setRange(value);
-            setPage(1);
-          }}
-        />
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <PillSelector
+            options={RANGE_OPTIONS}
+            value={range}
+            onChange={(value) => {
+              setRange(value);
+              setPage(1);
+            }}
+          />
+          {range === "custom" && (
+            <YearRangeSelector
+              years={years ?? [now.getFullYear()]}
+              fromYear={customRange.fromYear}
+              toYear={customRange.toYear}
+              onChange={(value) => {
+                setCustomRange(value);
+                setPage(1);
+              }}
+            />
+          )}
+        </div>
       </div>
 
       <CategoryRankingCard

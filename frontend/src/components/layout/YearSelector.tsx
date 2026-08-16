@@ -2,15 +2,15 @@ import { useEffect, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-interface YearSelectorProps {
+interface YearDropdownProps {
   years: number[];
   year: number;
   onChange: (year: number) => void;
 }
 
-/** Compact dropdown, most recent year first — sits to the right of
- * MonthSelector instead of competing with it as a second row of pills. */
-export function YearSelector({ years, year, onChange }: YearSelectorProps) {
+/** Compact single-year dropdown, most recent year first. Shared building
+ * block behind both YearSelector and YearRangeSelector below. */
+function YearDropdown({ years, year, onChange }: YearDropdownProps) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const sortedYears = [...years].sort((a, b) => b - a);
@@ -75,6 +75,32 @@ export function YearSelector({ years, year, onChange }: YearSelectorProps) {
           })}
         </ul>
       )}
+    </div>
+  );
+}
+
+/** Sits to the right of MonthSelector instead of competing with it as a
+ * second row of pills. */
+export function YearSelector(props: YearDropdownProps) {
+  return <YearDropdown {...props} />;
+}
+
+interface YearRangeSelectorProps {
+  years: number[];
+  fromYear: number;
+  toYear: number;
+  onChange: (range: { fromYear: number; toYear: number }) => void;
+}
+
+/** Two year dropdowns for picking an arbitrary "from year – to year" span
+ * (CashFlow/Reports "custom" range preset). Keeps fromYear <= toYear by
+ * dragging the other bound along instead of allowing an inverted range. */
+export function YearRangeSelector({ years, fromYear, toYear, onChange }: YearRangeSelectorProps) {
+  return (
+    <div className="flex shrink-0 items-center gap-1.5">
+      <YearDropdown years={years} year={fromYear} onChange={(value) => onChange({ fromYear: value, toYear: Math.max(toYear, value) })} />
+      <span className="text-sm text-text-muted">–</span>
+      <YearDropdown years={years} year={toYear} onChange={(value) => onChange({ fromYear: Math.min(fromYear, value), toYear: value })} />
     </div>
   );
 }
