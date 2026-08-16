@@ -18,7 +18,10 @@ export function RecentTransactionsCard({ year, month }: RecentTransactionsCardPr
     <Card>
       <CardHeader>
         <CardTitle>{t("dashboard.recentTransactionsTitle")}</CardTitle>
-        <Link to="/transactions" className="text-xs font-medium text-series-1 hover:underline">
+        <Link
+          to={`/transactions?year=${year}&month=${month}`}
+          className="text-xs font-medium text-series-1 hover:underline"
+        >
           {t("dashboard.allTransactionsLink")}
         </Link>
       </CardHeader>

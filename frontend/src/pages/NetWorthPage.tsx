@@ -16,7 +16,10 @@ import type { Asset, NetWorthRange } from "@/types";
 
 export function NetWorthPage() {
   const { t } = useTranslation();
-  const [range, setRange] = useState<NetWorthRange>("30d");
+  // Defaults to 5 years: a short window can show a dip whenever spending
+  // briefly outpaces recorded income, which reads as decline even though
+  // the long-run trend is up — 5y is long enough to make that trend visible.
+  const [range, setRange] = useState<NetWorthRange>("5y");
   const { data: summary, isLoading: isSummaryLoading } = useNetWorthSummary(range);
   const { data: assets, isLoading: isAssetsLoading } = useAssets();
   const deleteAsset = useDeleteAsset();

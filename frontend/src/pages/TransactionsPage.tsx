@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Plus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -16,11 +17,27 @@ import type { Transaction, TransactionType } from "@/types";
 
 const PAGE_SIZE = 20;
 
+/** Clamp a query-param month to 1-12, falling back to `fallback` for
+ * anything missing or out of range (e.g. a hand-edited URL). */
+function parseMonthParam(value: string | null, fallback: number): number {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) ? Math.min(12, Math.max(1, parsed)) : fallback;
+}
+
+function parseYearParam(value: string | null, fallback: number): number {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
 export function TransactionsPage() {
   const { t } = useTranslation();
   const now = new Date();
-  const [year, setYear] = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth() + 1);
+  // Deep-linked from the Dashboard's "All transactions" link, which carries
+  // the month/year the user was already looking at (?year=&month=) so this
+  // page doesn't reset back to the current month.
+  const [searchParams] = useSearchParams();
+  const [year, setYear] = useState(() => parseYearParam(searchParams.get("year"), now.getFullYear()));
+  const [month, setMonth] = useState(() => parseMonthParam(searchParams.get("month"), now.getMonth() + 1));
   const [type, setType] = useState<TransactionType | "">("");
   const [categoryId, setCategoryId] = useState<string>("");
   const [sort, setSort] = useState<TransactionSort>("date_desc");
