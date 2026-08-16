@@ -44,7 +44,7 @@ Aurum is a source-available personal finance operating system — a complete, gr
 
 Most finance apps show you a pie chart of last month's spending and call it a day. **Aurum goes further.**
 
-It's built for people who don't just want to *log* transactions — they want to understand the *mechanics* of their money: how capital grows or shrinks over time, which assets are pulling their weight, which subscriptions are quietly draining them, and which income streams are actually passive versus which just look that way on paper.
+It's built for people who don't just want to **log** transactions — they want to understand the **mechanics** of their money: how capital grows or shrinks over time, which assets are pulling their weight, which subscriptions are quietly draining them, and which income streams are actually passive versus which just look that way on paper.
 
 Aurum treats your financial life as a **system**, not a spreadsheet.
 
@@ -184,7 +184,7 @@ Aurum is built in the open, for everyone. Contributions of all kinds are welcome
 
 Aurum is released under the [PolyForm Noncommercial License 1.0.0](LICENSE).
 
-In plain terms: you can read the code, self-host it, modify it, and use it for any personal, educational, or noncommercial purpose, for free, forever. What you can't do is take it (or a modified version of it) and sell it, host it as a paid service for others, or otherwise build a commercial product on top of it. This is **not** an OSI-approved open source license — it's *source-available*. See the [LICENSE](LICENSE) file for the exact terms, and open a [Discussion](../../discussions) if you have a use case you're not sure is covered.
+In plain terms: you can read the code, self-host it, modify it, and use it for any personal, educational, or noncommercial purpose, for free, forever. What you can't do is take it (or a modified version of it) and sell it, host it as a paid service for others, or otherwise build a commercial product on top of it. This is **not** an OSI-approved open source license — it's **source-available**. See the [LICENSE](LICENSE) file for the exact terms, and open a [Discussion](../../discussions) if you have a use case you're not sure is covered.
 
 ## ❤️ Support Aurum
 
