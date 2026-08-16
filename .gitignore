@@ -28,11 +28,17 @@ __pycache__/
 *.pyc
 .venv/
 *.egg-info/
+.pytest_cache/
 
 # Node / frontend
 node_modules/
 dist/
 .vite/
+
+# Playwright (e2e/) run artifacts
+/e2e/test-results/
+/e2e/playwright-report/
+/e2e/.playwright/
 
 # Editors / OS / local tooling
 .DS_Store

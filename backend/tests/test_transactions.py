@@ -1,0 +1,204 @@
+"""Transactions: creation rules, filtering, pagination, sorting, and the
+/transactions/years picker endpoint.
+
+These assert the actual contract the frontend relies on — e.g. the year/month
+filter test below is the backend half of the "Recent Transactions showed last
+month's data too" regression from Aug 2026 (see UPDATES.md): the bug was in
+the frontend not passing year/month at all, but if the backend ever stopped
+honoring those filters correctly, the frontend fix would silently stop
+working and nothing would catch it except this test.
+"""
+from datetime import date
+from decimal import Decimal
+
+from httpx import AsyncClient
+
+from tests.helpers import money, txn_payload as _txn
+
+
+async def test_create_expense_rejects_income_category(client: AsyncClient, account_id, categories):
+    income_category = categories["Salary"]
+    resp = await client.post(
+        "/transactions", json=_txn(account_id, type="expense", category_id=income_category["id"])
+    )
+    assert resp.status_code == 400
+
+
+async def test_create_income_rejects_expense_category(client: AsyncClient, account_id, categories):
+    expense_category = categories["Groceries"]
+    resp = await client.post(
+        "/transactions", json=_txn(account_id, type="income", amount="500.00", category_id=expense_category["id"])
+    )
+    assert resp.status_code == 400
+
+
+async def test_create_expense_with_matching_category_succeeds(client: AsyncClient, account_id, categories):
+    category = categories["Groceries"]
+    resp = await client.post("/transactions", json=_txn(account_id, category_id=category["id"]))
+    assert resp.status_code == 201
+    body = resp.json()
+    assert body["category"]["id"] == category["id"]
+    assert money(body["amount"]) == Decimal("10.00")
+
+
+async def test_transfer_requires_destination_account(client: AsyncClient, account_id):
+    resp = await client.post("/transactions", json=_txn(account_id, type="transfer", amount="50.00"))
+    assert resp.status_code == 422
+
+
+async def test_transfer_rejects_same_source_and_destination(client: AsyncClient, account_id):
+    resp = await client.post(
+        "/transactions",
+        json=_txn(account_id, type="transfer", amount="50.00", transfer_account_id=account_id),
+    )
+    assert resp.status_code == 422
+
+
+async def test_transfer_rejects_a_category(client: AsyncClient, account_id, categories):
+    other = await client.post("/accounts", json={"name": "Savings", "type": "savings", "currency": "USD"})
+    other_id = other.json()["id"]
+    resp = await client.post(
+        "/transactions",
+        json=_txn(
+            account_id,
+            type="transfer",
+            amount="50.00",
+            transfer_account_id=other_id,
+            category_id=categories["Groceries"]["id"],
+        ),
+    )
+    assert resp.status_code == 422
+
+
+async def test_valid_transfer_between_two_accounts_succeeds(client: AsyncClient, account_id):
+    other = await client.post("/accounts", json={"name": "Savings", "type": "savings", "currency": "USD"})
+    other_id = other.json()["id"]
+    resp = await client.post(
+        "/transactions", json=_txn(account_id, type="transfer", amount="50.00", transfer_account_id=other_id)
+    )
+    assert resp.status_code == 201
+
+
+async def test_list_filters_by_year_and_month_excludes_other_months(client: AsyncClient, account_id, categories):
+    """The exact shape of the Aug 2026 Dashboard bug: three transactions in
+    three different months must never leak into a query scoped to just one
+    of them."""
+    category_id = categories["Groceries"]["id"]
+    for txn_date, description in [
+        ("2021-07-26", "july transaction"),
+        ("2021-08-08", "august transaction"),
+        ("2026-08-16", "current year august"),
+    ]:
+        resp = await client.post(
+            "/transactions", json=_txn(account_id, category_id=category_id, date=txn_date, description=description)
+        )
+        assert resp.status_code == 201
+
+    resp = await client.get("/transactions", params={"year": 2021, "month": 8})
+    body = resp.json()
+    assert body["total"] == 1
+    assert [item["description"] for item in body["items"]] == ["august transaction"]
+
+
+async def test_list_filters_by_explicit_date_range(client: AsyncClient, account_id, categories):
+    category_id = categories["Groceries"]["id"]
+    for txn_date in ["2024-01-01", "2024-06-15", "2024-12-31"]:
+        await client.post("/transactions", json=_txn(account_id, category_id=category_id, date=txn_date))
+
+    resp = await client.get("/transactions", params={"start_date": "2024-02-01", "end_date": "2024-11-01"})
+    body = resp.json()
+    assert body["total"] == 1
+    assert body["items"][0]["date"] == "2024-06-15"
+
+
+async def test_pagination_covers_every_item_with_no_overlap(client: AsyncClient, account_id, categories):
+    category_id = categories["Groceries"]["id"]
+    for day in range(1, 26):
+        await client.post(
+            "/transactions",
+            json=_txn(account_id, category_id=category_id, date=f"2025-03-{day:02d}", description=f"txn-{day}"),
+        )
+
+    seen_ids: set[int] = set()
+    page = 1
+    total = None
+    while True:
+        resp = await client.get("/transactions", params={"page": page, "page_size": 10, "sort": "date_desc"})
+        body = resp.json()
+        total = body["total"]
+        if not body["items"]:
+            break
+        for item in body["items"]:
+            assert item["id"] not in seen_ids, "pagination must not repeat an item across pages"
+            seen_ids.add(item["id"])
+        page += 1
+
+    assert total == 25
+    assert len(seen_ids) == 25
+
+
+async def test_sort_amount_desc_and_asc_are_opposite_orders(client: AsyncClient, account_id, categories):
+    category_id = categories["Groceries"]["id"]
+    for amount in ["5.00", "50.00", "20.00"]:
+        await client.post("/transactions", json=_txn(account_id, category_id=category_id, amount=amount))
+
+    desc = await client.get("/transactions", params={"sort": "amount_desc"})
+    asc = await client.get("/transactions", params={"sort": "amount_asc"})
+    desc_amounts = [money(item["amount"]) for item in desc.json()["items"]]
+    asc_amounts = [money(item["amount"]) for item in asc.json()["items"]]
+    assert desc_amounts == [Decimal("50.00"), Decimal("20.00"), Decimal("5.00")]
+    assert asc_amounts == list(reversed(desc_amounts))
+
+
+async def test_update_transaction_persists_changes(client: AsyncClient, account_id, categories):
+    category_id = categories["Groceries"]["id"]
+    created = await client.post("/transactions", json=_txn(account_id, category_id=category_id))
+    txn_id = created.json()["id"]
+
+    resp = await client.patch(f"/transactions/{txn_id}", json={"amount": "99.99", "description": "updated"})
+    assert resp.status_code == 200
+    assert money(resp.json()["amount"]) == Decimal("99.99")
+    assert resp.json()["description"] == "updated"
+
+    refetched = await client.get("/transactions", params={"page_size": 1})
+    assert money(refetched.json()["items"][0]["amount"]) == Decimal("99.99")
+
+
+async def test_update_transaction_rejects_category_kind_mismatch(client: AsyncClient, account_id, categories):
+    created = await client.post(
+        "/transactions", json=_txn(account_id, type="expense", category_id=categories["Groceries"]["id"])
+    )
+    txn_id = created.json()["id"]
+
+    resp = await client.patch(f"/transactions/{txn_id}", json={"category_id": categories["Salary"]["id"]})
+    assert resp.status_code == 400
+
+
+async def test_delete_transaction_removes_it_from_listing(client: AsyncClient, account_id, categories):
+    created = await client.post(
+        "/transactions", json=_txn(account_id, category_id=categories["Groceries"]["id"])
+    )
+    txn_id = created.json()["id"]
+
+    delete_resp = await client.delete(f"/transactions/{txn_id}")
+    assert delete_resp.status_code == 204
+
+    listing = await client.get("/transactions")
+    assert txn_id not in [item["id"] for item in listing.json()["items"]]
+
+
+async def test_years_endpoint_spans_earliest_transaction_through_current_year(
+    client: AsyncClient, account_id, categories
+):
+    category_id = categories["Groceries"]["id"]
+    await client.post("/transactions", json=_txn(account_id, category_id=category_id, date="2021-03-01"))
+    await client.post("/transactions", json=_txn(account_id, category_id=category_id, date="2023-11-20"))
+
+    resp = await client.get("/transactions/years")
+    current_year = date.today().year
+    assert resp.json() == list(range(2021, current_year + 1))
+
+
+async def test_years_endpoint_with_no_transactions_returns_only_current_year(client: AsyncClient):
+    resp = await client.get("/transactions/years")
+    assert resp.json() == [date.today().year]
