@@ -2,7 +2,7 @@ from datetime import date as date_
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -51,6 +51,7 @@ async def list_transactions(
     account_id: int | None = None,
     category_id: int | None = None,
     type: TransactionType | None = None,
+    search: str | None = Query(default=None, min_length=1, max_length=255),
     sort: Literal["date_desc", "amount_desc", "amount_asc"] = Query(default="date_desc"),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=200),
@@ -80,6 +81,18 @@ async def list_transactions(
     if type is not None:
         stmt = stmt.where(Transaction.type == type)
         count_stmt = count_stmt.where(Transaction.type == type)
+    if search is not None:
+        # Lets the user find a transaction from any period by keyword (e.g. an
+        # item bought months ago) without knowing which month to look in first —
+        # matches description, merchant, and notes so any of those fields can surface it.
+        pattern = f"%{search.strip()}%"
+        search_clause = or_(
+            Transaction.description.ilike(pattern),
+            Transaction.merchant.ilike(pattern),
+            Transaction.notes.ilike(pattern),
+        )
+        stmt = stmt.where(search_clause)
+        count_stmt = count_stmt.where(search_clause)
 
     total = (await session.execute(count_stmt)).scalar_one()
 

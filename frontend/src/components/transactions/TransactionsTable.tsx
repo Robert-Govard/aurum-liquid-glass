@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowLeftRight, Pencil, StickyNote, Trash2 } from "lucide-react";
+import { ArrowLeftRight, CalendarSearch, Pencil, StickyNote, Trash2 } from "lucide-react";
 import { Dialog } from "@/components/ui/Dialog";
 import { getCategoryIcon } from "@/lib/icons";
 import { formatCurrency, formatTransactionDate } from "@/lib/format";
@@ -11,14 +11,22 @@ interface TransactionsTableProps {
   items: Transaction[];
   onEdit: (transaction: Transaction) => void;
   onDelete: (transaction: Transaction) => void;
+  /** Present only while showing search results, which span every month —
+   * lets a row's date carry the year and offers a way to jump back to
+   * browsing that transaction's month instead of just listing it flat. */
+  onJumpToMonth?: (transaction: Transaction) => void;
 }
 
-export function TransactionsTable({ items, onEdit, onDelete }: TransactionsTableProps) {
+export function TransactionsTable({ items, onEdit, onDelete, onJumpToMonth }: TransactionsTableProps) {
   const { t } = useTranslation();
   const [noteTransaction, setNoteTransaction] = useState<Transaction | null>(null);
 
   if (items.length === 0) {
-    return <p className="py-12 text-center text-sm text-text-muted">{t("transactions.noneFound")}</p>;
+    return (
+      <p className="py-12 text-center text-sm text-text-muted">
+        {onJumpToMonth ? t("transactions.searchNoneFound") : t("transactions.noneFound")}
+      </p>
+    );
   }
 
   return (
@@ -42,7 +50,7 @@ export function TransactionsTable({ items, onEdit, onDelete }: TransactionsTable
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-medium text-text-primary">{tx.description}</span>
                 <span className="block truncate text-xs text-text-muted">
-                  {formatTransactionDate(tx.date)} · {tx.account.name}
+                  {formatTransactionDate(tx.date, Boolean(onJumpToMonth))} · {tx.account.name}
                   {isTransfer && tx.transfer_account_id ? ` ${t("transactions.transferSuffix")}` : ""}
                   {tx.category ? ` · ${translateCategoryName(tx.category.name)}` : ""}
                 </span>
@@ -58,6 +66,16 @@ export function TransactionsTable({ items, onEdit, onDelete }: TransactionsTable
               </span>
 
               <span className="flex shrink-0 gap-1">
+                {onJumpToMonth && (
+                  <button
+                    type="button"
+                    aria-label={t("transactions.jumpToMonth")}
+                    onClick={() => onJumpToMonth(tx)}
+                    className="rounded-md p-1.5 text-text-muted hover:bg-surface-2 hover:text-text-primary"
+                  >
+                    <CalendarSearch size={15} />
+                  </button>
+                )}
                 {tx.notes && (
                   <button
                     type="button"

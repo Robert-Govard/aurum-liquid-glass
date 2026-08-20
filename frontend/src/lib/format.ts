@@ -30,9 +30,15 @@ export function getMonthLabels(language: Language): readonly string[] {
   return language === "ru" ? MONTH_LABELS_RU : MONTH_LABELS_EN;
 }
 
-export function formatTransactionDate(isoDate: string): string {
+/** `includeYear` is for contexts spanning multiple years (e.g. an all-time
+ * search) where "Aug 16" alone wouldn't say which year. */
+export function formatTransactionDate(isoDate: string, includeYear = false): string {
   const date = new Date(`${isoDate}T00:00:00`);
-  return new Intl.DateTimeFormat(getIntlLocale(), { month: "short", day: "numeric" }).format(date);
+  return new Intl.DateTimeFormat(getIntlLocale(), {
+    month: "short",
+    day: "numeric",
+    year: includeYear ? "numeric" : undefined,
+  }).format(date);
 }
 
 /** Russian noun pluralization: pick the right form for 1/2-4/5+ (with the

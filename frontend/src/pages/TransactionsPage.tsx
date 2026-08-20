@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Plus } from "lucide-react";
+import { Plus, Search, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { Select } from "@/components/ui/Input";
+import { Input, Select } from "@/components/ui/Input";
 import { MonthSelector } from "@/components/layout/MonthSelector";
 import { YearSelector } from "@/components/layout/YearSelector";
 import { TransactionsTable } from "@/components/transactions/TransactionsTable";
@@ -47,14 +47,30 @@ export function TransactionsPage() {
   const [sort, setSort] = useState<TransactionSort>("date_desc");
   const [page, setPage] = useState(1);
 
+  // Raw text follows every keystroke; the debounced value is what actually
+  // drives the query, so we're not refetching on every character typed.
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setSearch(searchInput.trim());
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [searchInput]);
+  const isSearching = search.length > 0;
+
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 
   const { data: categories } = useCategories();
   const { data: years } = useTransactionYears();
   const { data, isLoading, isError } = useTransactions({
-    year,
-    month,
+    // A search looks for a purchase from an unknown month, so it must span
+    // every period instead of being boxed into the currently selected one.
+    year: isSearching ? undefined : year,
+    month: isSearching ? undefined : month,
+    search: isSearching ? search : undefined,
     type: type || undefined,
     category_id: categoryId ? Number(categoryId) : undefined,
     sort,
@@ -81,11 +97,23 @@ export function TransactionsPage() {
     }
   }
 
+  /** Leaves search mode and switches the month/year selectors to whichever
+   * month the picked transaction is in, so the user lands back in the normal
+   * browsing view with it in context instead of a flat result list. */
+  function handleJumpToMonth(transaction: Transaction) {
+    const date = new Date(`${transaction.date}T00:00:00`);
+    setYear(date.getFullYear());
+    setMonth(date.getMonth() + 1);
+    setSearchInput("");
+    setSearch("");
+    setPage(1);
+  }
+
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 flex-1 items-center gap-3">
-          <div className="min-w-0 flex-1">
+          <div className={`min-w-0 flex-1 ${isSearching ? "pointer-events-none opacity-50" : ""}`}>
             <MonthSelector
               month={month}
               onChange={(value) => {
@@ -94,20 +122,47 @@ export function TransactionsPage() {
               }}
             />
           </div>
-          <YearSelector
-            years={years ?? [now.getFullYear()]}
-            year={year}
-            onChange={(value) => {
-              setYear(value);
-              setPage(1);
-            }}
-          />
+          <div className={isSearching ? "pointer-events-none opacity-50" : ""}>
+            <YearSelector
+              years={years ?? [now.getFullYear()]}
+              year={year}
+              onChange={(value) => {
+                setYear(value);
+                setPage(1);
+              }}
+            />
+          </div>
         </div>
         <Button onClick={openCreateModal} className="w-full sm:w-auto">
           <Plus size={16} />
           {t("transactions.addButton")}
         </Button>
       </div>
+
+      <div className="relative">
+        <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+        <Input
+          value={searchInput}
+          onChange={(event) => setSearchInput(event.target.value)}
+          placeholder={t("transactions.searchPlaceholder")}
+          className="pl-9 pr-9"
+        />
+        {searchInput && (
+          <button
+            type="button"
+            aria-label={t("common.clear")}
+            onClick={() => {
+              setSearchInput("");
+              setSearch("");
+              setPage(1);
+            }}
+            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-text-muted hover:bg-surface-2 hover:text-text-primary"
+          >
+            <X size={15} />
+          </button>
+        )}
+      </div>
+      {isSearching && <p className="text-xs text-text-muted">{t("transactions.searchAcrossAllTime")}</p>}
 
       <div className="flex flex-col gap-3 sm:flex-row">
         <Select
@@ -162,7 +217,12 @@ export function TransactionsPage() {
           {isLoading ? (
             <p className="py-12 text-center text-sm text-text-muted">{t("common.loading")}</p>
           ) : (
-            <TransactionsTable items={data?.items ?? []} onEdit={openEditModal} onDelete={handleDelete} />
+            <TransactionsTable
+              items={data?.items ?? []}
+              onEdit={openEditModal}
+              onDelete={handleDelete}
+              onJumpToMonth={isSearching ? handleJumpToMonth : undefined}
+            />
           )}
 
           {totalPages > 1 && (

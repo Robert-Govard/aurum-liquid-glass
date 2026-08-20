@@ -111,6 +111,57 @@ async def test_list_filters_by_explicit_date_range(client: AsyncClient, account_
     assert body["items"][0]["date"] == "2024-06-15"
 
 
+async def test_search_matches_description_across_any_period_ignoring_month_filter(
+    client: AsyncClient, account_id, categories
+):
+    """The point of search is finding a purchase from an unknown month without
+    already knowing which month to filter by, so it must not be scoped by the
+    year/month params even when the caller happens to also pass them."""
+    category_id = categories["Groceries"]["id"]
+    for txn_date, description in [
+        ("2021-03-12", "PlayStation 5 console"),
+        ("2024-11-02", "grocery run"),
+        ("2026-08-16", "current month coffee"),
+    ]:
+        resp = await client.post(
+            "/transactions", json=_txn(account_id, category_id=category_id, date=txn_date, description=description)
+        )
+        assert resp.status_code == 201
+
+    resp = await client.get("/transactions", params={"search": "playstation"})
+    body = resp.json()
+    assert body["total"] == 1
+    assert body["items"][0]["description"] == "PlayStation 5 console"
+
+
+async def test_search_matches_merchant_and_notes(client: AsyncClient, account_id, categories):
+    category_id = categories["Groceries"]["id"]
+    await client.post(
+        "/transactions",
+        json=_txn(account_id, category_id=category_id, description="misc", merchant="Best Buy"),
+    )
+    await client.post(
+        "/transactions",
+        json=_txn(account_id, category_id=category_id, description="misc", notes="bought for a birthday gift"),
+    )
+
+    merchant_resp = await client.get("/transactions", params={"search": "best buy"})
+    assert merchant_resp.json()["total"] == 1
+
+    notes_resp = await client.get("/transactions", params={"search": "birthday"})
+    assert notes_resp.json()["total"] == 1
+
+
+async def test_search_with_no_matches_returns_empty(client: AsyncClient, account_id, categories):
+    category_id = categories["Groceries"]["id"]
+    await client.post("/transactions", json=_txn(account_id, category_id=category_id, description="groceries"))
+
+    resp = await client.get("/transactions", params={"search": "nonexistent item xyz"})
+    body = resp.json()
+    assert body["total"] == 0
+    assert body["items"] == []
+
+
 async def test_pagination_covers_every_item_with_no_overlap(client: AsyncClient, account_id, categories):
     category_id = categories["Groceries"]["id"]
     for day in range(1, 26):

@@ -11,6 +11,7 @@ export interface TransactionFilters {
   account_id?: number;
   category_id?: number;
   type?: string;
+  search?: string;
   sort?: TransactionSort;
   page?: number;
   page_size?: number;
