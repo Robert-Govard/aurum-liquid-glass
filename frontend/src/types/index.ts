@@ -36,6 +36,22 @@ export interface Category {
   is_default: boolean;
 }
 
+export interface CategoryInput {
+  name: string;
+  kind: CategoryKind;
+  icon?: string | null;
+  color: string;
+  sort_order?: number;
+}
+
+// kind is fixed at creation on the backend (CategoryUpdate has no kind field).
+export interface CategoryUpdateInput {
+  name?: string;
+  icon?: string | null;
+  color?: string;
+  sort_order?: number;
+}
+
 export interface Transaction {
   id: number;
   account_id: number;

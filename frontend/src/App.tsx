@@ -9,6 +9,7 @@ import { AccountsPage } from "@/pages/AccountsPage";
 import { AdvicePage } from "@/pages/AdvicePage";
 import { BudgetPage } from "@/pages/BudgetPage";
 import { CashFlowPage } from "@/pages/CashFlowPage";
+import { CategoriesPage } from "@/pages/CategoriesPage";
 import { DashboardPage } from "@/pages/DashboardPage";
 import { GoalsPage } from "@/pages/GoalsPage";
 import { NetWorthPage } from "@/pages/NetWorthPage";
@@ -46,6 +47,7 @@ export default function App() {
             <Route path="/net-worth" element={<NetWorthPage />} />
             <Route path="/roi" element={<RoiPage />} />
             <Route path="/accounts" element={<AccountsPage />} />
+            <Route path="/categories" element={<CategoriesPage />} />
             <Route path="/cash-flow" element={<CashFlowPage />} />
             <Route path="/transactions" element={<TransactionsPage />} />
             <Route path="/reports" element={<ReportsPage />} />

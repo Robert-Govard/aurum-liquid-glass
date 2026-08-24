@@ -1,0 +1,88 @@
+import { useState } from "react";
+import { Plus } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { CategoryFormModal } from "@/components/categories/CategoryFormModal";
+import { CategoryList } from "@/components/categories/CategoryList";
+import { useCategories, useDeleteCategory } from "@/hooks/useCategories";
+import { useTranslation } from "@/lib/i18n";
+import type { Category, CategoryKind } from "@/types";
+
+export function CategoriesPage() {
+  const { t } = useTranslation();
+  const { data: categories, isLoading } = useCategories();
+  const deleteCategory = useDeleteCategory();
+
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [modalKind, setModalKind] = useState<CategoryKind>("expense");
+
+  function openCreateModal(kind: CategoryKind) {
+    setEditingCategory(null);
+    setModalKind(kind);
+    setModalOpen(true);
+  }
+
+  function openEditModal(category: Category) {
+    setEditingCategory(category);
+    setModalKind(category.kind);
+    setModalOpen(true);
+  }
+
+  function handleDelete(category: Category) {
+    // Default categories are protected server-side too (400) — the list
+    // already disables the delete button for them, this is just a guard.
+    if (category.is_default) return;
+    if (window.confirm(t("category.confirmDelete", { name: category.name }))) {
+      deleteCategory.mutate(category.id);
+    }
+  }
+
+  const expenseCategories = (categories ?? []).filter((category) => category.kind === "expense");
+  const incomeCategories = (categories ?? []).filter((category) => category.kind === "income");
+
+  return (
+    <div className="space-y-5">
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("category.expenseSectionTitle")}</CardTitle>
+          <Button onClick={() => openCreateModal("expense")}>
+            <Plus size={16} />
+            {t("common.add")}
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <p className="py-10 text-center text-sm text-text-muted">{t("common.loading")}</p>
+          ) : (
+            <CategoryList items={expenseCategories} onEdit={openEditModal} onDelete={handleDelete} />
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("category.incomeSectionTitle")}</CardTitle>
+          <Button onClick={() => openCreateModal("income")}>
+            <Plus size={16} />
+            {t("common.add")}
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <p className="py-10 text-center text-sm text-text-muted">{t("common.loading")}</p>
+          ) : (
+            <CategoryList items={incomeCategories} onEdit={openEditModal} onDelete={handleDelete} />
+          )}
+        </CardContent>
+      </Card>
+
+      <CategoryFormModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        category={editingCategory}
+        defaultKind={modalKind}
+      />
+    </div>
+  );
+}
