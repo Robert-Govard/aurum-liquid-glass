@@ -81,6 +81,23 @@ async def test_spending_by_category_amounts_and_percent(client: AsyncClient, acc
     assert breakdown["Dining Out"]["percent"] == 25.0
 
 
+async def test_subcategory_spending_rolls_up_into_its_parent(client: AsyncClient, account_id, categories):
+    groceries = categories["Groceries"]["id"]
+    alcohol = await client.post(
+        "/categories", json={"name": "Alcohol", "kind": "expense", "color": "#e34948", "parent_id": groceries}
+    )
+    alcohol_id = alcohol.json()["id"]
+
+    await client.post("/transactions", json=_txn(account_id, amount="60.00", category_id=groceries, date="2026-08-01"))
+    await client.post("/transactions", json=_txn(account_id, amount="15.00", category_id=alcohol_id, date="2026-08-02"))
+
+    resp = await client.get("/dashboard/summary", params={"year": 2026, "month": 8})
+    breakdown = {row["name"]: row for row in resp.json()["spending_by_category"]}
+
+    assert "Alcohol" not in breakdown
+    assert money(breakdown["Groceries"]["amount"]) == Decimal("75.00")
+
+
 async def test_more_than_eight_expense_categories_roll_up_into_other(client: AsyncClient, account_id, categories):
     expense_categories = [c for c in categories.values() if c["kind"] == "expense"]
     # The default seed only ships 8 expense categories (see app/db/seed.py) —

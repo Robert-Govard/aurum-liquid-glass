@@ -9,6 +9,7 @@ const ALERT_MESSAGE_KEYS: Record<string, TranslationKey> = {
   net_worth_decline_streak: "insights.netWorthDecline",
   budget_exceeded: "insights.budgetExceeded",
   risky_allocation_exceeded: "insights.riskyAllocationExceeded",
+  idle_cash: "insights.idleCash",
 };
 
 function alertMessage(alert: FinancialAlert, t: ReturnType<typeof useTranslation>["t"]): string {
@@ -17,6 +18,9 @@ function alertMessage(alert: FinancialAlert, t: ReturnType<typeof useTranslation
   // a plural-aware word form through a plain {{count}} template.
   if (alert.key === "budget_exceeded" && alert.params.count === 1) {
     return t("insights.budgetExceededOne");
+  }
+  if (alert.key === "idle_cash" && alert.params.count === 1) {
+    return t("insights.idleCashOne", alert.params);
   }
   const messageKey = ALERT_MESSAGE_KEYS[alert.key];
   if (!messageKey) return alert.key;

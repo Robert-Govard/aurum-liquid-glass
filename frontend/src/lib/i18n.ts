@@ -203,6 +203,8 @@ const ru = {
   "settings.negativeCashFlowThresholdLabel": "Расходы превышают доходы, мес. подряд",
   "settings.netWorthDeclineThresholdLabel": "Капитал снижается, мес. подряд",
   "settings.riskyAllocationThresholdLabel": "Допустимая доля рискового капитала, %",
+  "settings.idleCashThresholdAmountLabel": "Простаивающий кэш — сумма от",
+  "settings.idleCashThresholdDaysLabel": "Простаивающий кэш — без движения, дней",
 
   "backup.title": "Резервное копирование",
   "backup.description":
@@ -226,6 +228,8 @@ const ru = {
   "insights.budgetExceededOne": "Превышен бюджет в 1 категории в этом месяце",
   "insights.budgetExceeded": "Превышен бюджет в {{count}} категориях в этом месяце",
   "insights.riskyAllocationExceeded": "Рискованная часть капитала — {{percent}}%, превышает установленный лимит {{threshold}}%",
+  "insights.idleCashOne": "На 1 счёте лежит крупная сумма без движения {{days}}+ дней — возможно, эти деньги стоит куда-то вложить",
+  "insights.idleCash": "На {{count}} счетах лежит крупная сумма без движения {{days}}+ дней — возможно, эти деньги стоит куда-то вложить",
 
   "budget.empty": "Бюджетов пока нет. Задайте лимит для категории расходов, чтобы отслеживать её здесь.",
   "budget.remaining": "{{amount}} осталось",
@@ -314,6 +318,9 @@ const ru = {
   "category.form.nameLabel": "Название",
   "category.form.namePlaceholder": "Продукты, транспорт, подписки…",
   "category.form.kindLabel": "Тип",
+  "category.form.parentLabel": "Родительская категория",
+  "category.form.noParent": "— без родителя (верхний уровень) —",
+  "category.form.hasChildrenHint": "У категории уже есть подкатегории — она не может сама стать подкатегорией.",
   "category.form.iconLabel": "Иконка",
   "category.form.colorLabel": "Цвет",
   "category.form.customColorLabel": "Свой цвет",
@@ -559,6 +566,8 @@ const en: Record<keyof typeof ru, string> = {
   "settings.negativeCashFlowThresholdLabel": "Expenses exceed income, consecutive months",
   "settings.netWorthDeclineThresholdLabel": "Net worth declining, consecutive months",
   "settings.riskyAllocationThresholdLabel": "Max % of capital allowed at risk",
+  "settings.idleCashThresholdAmountLabel": "Idle cash — balance at or above",
+  "settings.idleCashThresholdDaysLabel": "Idle cash — no activity for, days",
 
   "backup.title": "Backup & Restore",
   "backup.description":
@@ -582,6 +591,8 @@ const en: Record<keyof typeof ru, string> = {
   "insights.budgetExceededOne": "Budget exceeded in 1 category this month",
   "insights.budgetExceeded": "Budget exceeded in {{count}} categories this month",
   "insights.riskyAllocationExceeded": "Risky share of capital is {{percent}}%, above your {{threshold}}% limit",
+  "insights.idleCashOne": "1 account is holding a large balance with no activity for {{days}}+ days — that money might be worth putting to work",
+  "insights.idleCash": "{{count}} accounts are holding a large balance with no activity for {{days}}+ days — that money might be worth putting to work",
 
   "budget.empty": "No budgets yet. Set a limit for an expense category to start tracking it here.",
   "budget.remaining": "{{amount}} left",
@@ -670,6 +681,9 @@ const en: Record<keyof typeof ru, string> = {
   "category.form.nameLabel": "Name",
   "category.form.namePlaceholder": "Groceries, transport, subscriptions…",
   "category.form.kindLabel": "Type",
+  "category.form.parentLabel": "Parent category",
+  "category.form.noParent": "— no parent (top level) —",
+  "category.form.hasChildrenHint": "This category already has subcategories — it can't become a subcategory itself.",
   "category.form.iconLabel": "Icon",
   "category.form.colorLabel": "Color",
   "category.form.customColorLabel": "Custom color",

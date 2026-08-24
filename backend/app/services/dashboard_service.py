@@ -5,6 +5,7 @@ from decimal import Decimal
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 from app.models.category import Category
 from app.models.enums import TransactionType
@@ -37,22 +38,33 @@ async def get_dashboard_summary(session: AsyncSession, year: int, month: int) ->
     spent = totals.get(TransactionType.EXPENSE, Decimal("0"))
     transferred_out = totals.get(TransactionType.TRANSFER, Decimal("0"))
 
+    # A subcategory's spending rolls up into its parent's slice — Parent is a
+    # self-join to resolve each transaction's *top-level* category, falling
+    # back to the transaction's own category when it has no parent.
+    Parent = aliased(Category)
+    effective_id = func.coalesce(Category.parent_id, Category.id)
+    effective_name = func.coalesce(Parent.name, Category.name)
+    effective_color = func.coalesce(Parent.color, Category.color)
+    effective_icon = func.coalesce(Parent.icon, Category.icon)
+    effective_sort = func.coalesce(Parent.sort_order, Category.sort_order)
+
     breakdown_stmt = (
         select(
-            Category.id,
-            Category.name,
-            Category.color,
-            Category.icon,
+            effective_id.label("category_id"),
+            effective_name.label("name"),
+            effective_color.label("color"),
+            effective_icon.label("icon"),
             func.coalesce(func.sum(Transaction.amount), 0).label("amount"),
         )
         .join(Category, Category.id == Transaction.category_id)
+        .outerjoin(Parent, Parent.id == Category.parent_id)
         .where(
             Transaction.date >= start,
             Transaction.date <= end,
             Transaction.type == TransactionType.EXPENSE,
         )
-        .group_by(Category.id, Category.name, Category.color, Category.icon, Category.sort_order)
-        .order_by(func.sum(Transaction.amount).desc(), Category.sort_order)
+        .group_by(effective_id, effective_name, effective_color, effective_icon, effective_sort)
+        .order_by(func.sum(Transaction.amount).desc(), effective_sort)
     )
     breakdown_result = await session.execute(breakdown_stmt)
     rows = breakdown_result.all()

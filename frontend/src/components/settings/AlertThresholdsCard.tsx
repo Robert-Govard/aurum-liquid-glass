@@ -8,6 +8,9 @@ const MIN_MONTHS = 1;
 const MAX_MONTHS = 24;
 const MIN_PERCENT = 1;
 const MAX_PERCENT = 100;
+const MIN_AMOUNT = 0;
+const MIN_DAYS = 1;
+const MAX_DAYS = 365;
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -21,12 +24,16 @@ export function AlertThresholdsCard() {
   const [cashFlowMonths, setCashFlowMonths] = useState("");
   const [netWorthMonths, setNetWorthMonths] = useState("");
   const [riskyPercent, setRiskyPercent] = useState("");
+  const [idleCashAmount, setIdleCashAmount] = useState("");
+  const [idleCashDays, setIdleCashDays] = useState("");
 
   useEffect(() => {
     if (!settings) return;
     setCashFlowMonths(String(settings.negative_cash_flow_threshold_months));
     setNetWorthMonths(String(settings.net_worth_decline_threshold_months));
     setRiskyPercent(String(settings.risky_allocation_threshold_percent));
+    setIdleCashAmount(settings.idle_cash_threshold_amount);
+    setIdleCashDays(String(settings.idle_cash_threshold_days));
   }, [settings]);
 
   function commitCashFlowMonths() {
@@ -53,13 +60,29 @@ export function AlertThresholdsCard() {
     }
   }
 
+  function commitIdleCashAmount() {
+    const value = Math.max(MIN_AMOUNT, Number(idleCashAmount) || MIN_AMOUNT).toFixed(2);
+    setIdleCashAmount(value);
+    if (settings && value !== settings.idle_cash_threshold_amount) {
+      updateSettings.mutate({ idle_cash_threshold_amount: value });
+    }
+  }
+
+  function commitIdleCashDays() {
+    const value = clamp(Number(idleCashDays) || MIN_DAYS, MIN_DAYS, MAX_DAYS);
+    setIdleCashDays(String(value));
+    if (settings && value !== settings.idle_cash_threshold_days) {
+      updateSettings.mutate({ idle_cash_threshold_days: value });
+    }
+  }
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>{t("settings.alertsTitle")}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <div>
             <Label htmlFor="cash-flow-threshold">{t("settings.negativeCashFlowThresholdLabel")}</Label>
             <Input
@@ -97,6 +120,31 @@ export function AlertThresholdsCard() {
               value={riskyPercent}
               onChange={(event) => setRiskyPercent(event.target.value)}
               onBlur={commitRiskyPercent}
+            />
+          </div>
+          <div>
+            <Label htmlFor="idle-cash-amount-threshold">{t("settings.idleCashThresholdAmountLabel")}</Label>
+            <Input
+              id="idle-cash-amount-threshold"
+              type="number"
+              min={MIN_AMOUNT}
+              step={0.01}
+              value={idleCashAmount}
+              onChange={(event) => setIdleCashAmount(event.target.value)}
+              onBlur={commitIdleCashAmount}
+            />
+          </div>
+          <div>
+            <Label htmlFor="idle-cash-days-threshold">{t("settings.idleCashThresholdDaysLabel")}</Label>
+            <Input
+              id="idle-cash-days-threshold"
+              type="number"
+              min={MIN_DAYS}
+              max={MAX_DAYS}
+              step={1}
+              value={idleCashDays}
+              onChange={(event) => setIdleCashDays(event.target.value)}
+              onBlur={commitIdleCashDays}
             />
           </div>
         </div>

@@ -9,6 +9,9 @@ class CategoryBase(BaseModel):
     icon: str | None = None
     color: str = Field(pattern=r"^#[0-9a-fA-F]{6}$")
     sort_order: int = 0
+    # Subcategory parent, one level deep only — routes/categories.py rejects
+    # a parent that itself already has a parent.
+    parent_id: int | None = None
 
 
 class CategoryCreate(CategoryBase):
@@ -20,6 +23,10 @@ class CategoryUpdate(BaseModel):
     icon: str | None = None
     color: str | None = Field(default=None, pattern=r"^#[0-9a-fA-F]{6}$")
     sort_order: int | None = None
+    # The route uses exclude_unset=True, so sending parent_id explicitly as
+    # null (as opposed to omitting the field) is what turns a subcategory
+    # back into a top-level category.
+    parent_id: int | None = None
 
 
 class CategoryRead(CategoryBase):

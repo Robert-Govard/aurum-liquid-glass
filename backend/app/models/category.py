@@ -1,5 +1,5 @@
 """A spending/income category, colored so it maps 1:1 to a dashboard chart slot."""
-from sqlalchemy import Boolean, Enum, Integer, String
+from sqlalchemy import Boolean, Enum, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -22,5 +22,12 @@ class Category(Base):
     # Fixed slot ordering keeps the donut chart's category order stable across renders.
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     is_default: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Self-referential, one level deep only (routes/categories.py rejects a
+    # parent that itself has a parent) — a subcategory ("Alcohol" under
+    # "Groceries"). SET NULL so deleting a parent turns its children back
+    # into top-level categories instead of cascading the delete.
+    parent_id: Mapped[int | None] = mapped_column(ForeignKey("categories.id", ondelete="SET NULL"), nullable=True)
 
     transactions: Mapped[list["Transaction"]] = relationship(back_populates="category")
+    parent: Mapped["Category | None"] = relationship(remote_side=[id], back_populates="children")
+    children: Mapped[list["Category"]] = relationship(back_populates="parent")

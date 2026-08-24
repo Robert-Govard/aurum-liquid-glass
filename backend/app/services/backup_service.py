@@ -75,6 +75,10 @@ def _validate_references(payload: BackupPayload) -> None:
     category_ids = {row.id for row in payload.categories}
     asset_ids = {row.id for row in payload.assets}
 
+    for c in payload.categories:
+        if c.parent_id is not None and c.parent_id not in category_ids:
+            raise HTTPException(400, f"Category {c.id} references unknown parent_id {c.parent_id}")
+
     for t in payload.transactions:
         if t.account_id not in account_ids:
             raise HTTPException(400, f"Transaction {t.id} references unknown account_id {t.account_id}")
@@ -145,9 +149,14 @@ async def restore_backup(session: AsyncSession, payload: BackupPayload) -> None:
         await session.execute(delete(Category))
         await session.execute(delete(Account))
 
-        # Parents before children.
+        # Parents before children. Categories are additionally self-referential
+        # (parent_id points at another row in the same table) — sort
+        # top-level categories first so a subcategory's FK is never inserted
+        # ahead of the row it points to.
+        categories_in_order = sorted(payload.categories, key=lambda row: row.parent_id is not None)
+
         session.add_all(Account(**row.model_dump()) for row in payload.accounts)
-        session.add_all(Category(**row.model_dump()) for row in payload.categories)
+        session.add_all(Category(**row.model_dump()) for row in categories_in_order)
         session.add_all(Asset(**row.model_dump()) for row in payload.assets)
         session.add_all(Transaction(**row.model_dump()) for row in payload.transactions)
         session.add_all(AssetValuation(**row.model_dump()) for row in payload.asset_valuations)

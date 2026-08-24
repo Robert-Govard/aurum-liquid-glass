@@ -2,7 +2,9 @@
 single-row table (id is always 1). Primary display currency (see UPDATES.md
 for why this doesn't do currency conversion) and the proactive-alert
 thresholds consumed by services/insights_service.py."""
-from sqlalchemy import Integer, String
+from decimal import Decimal
+
+from sqlalchemy import Integer, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -21,3 +23,9 @@ class AppSettings(Base):
     # tiers before insights_service.py raises risky_allocation_exceeded —
     # the classic "80% at zero risk, 20% at most exposed" rule.
     risky_allocation_threshold_percent: Mapped[int] = mapped_column(Integer, nullable=False, default=20)
+    # A depository account (checking/savings/cash) sitting at or above this
+    # balance with no transaction touching it in idle_cash_threshold_days
+    # raises insights_service.py's idle_cash alert — money that isn't
+    # working. In the app's display currency (see `currency` above).
+    idle_cash_threshold_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False, default=Decimal("1000"))
+    idle_cash_threshold_days: Mapped[int] = mapped_column(Integer, nullable=False, default=60)

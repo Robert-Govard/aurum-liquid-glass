@@ -10,6 +10,7 @@ from decimal import Decimal
 from fastapi import HTTPException
 from sqlalchemy import extract, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 from app.models.category import Category
 from app.models.enums import CategoryKind, TransactionType
@@ -33,8 +34,18 @@ async def get_category_spending_report(
     if category is None:
         raise HTTPException(status_code=404, detail="Category not found")
 
+    # A top-level category's own report folds in its subcategories' spending
+    # too (same rollup as the Dashboard breakdown); a subcategory picked
+    # directly shows just its own transactions — there's nothing beneath it.
+    category_ids: list[int] = [category_id]
+    if category.parent_id is None:
+        child_ids = (
+            await session.execute(select(Category.id).where(Category.parent_id == category_id))
+        ).scalars().all()
+        category_ids.extend(child_ids)
+
     bounds_stmt = select(func.min(Transaction.date), func.max(Transaction.date)).where(
-        Transaction.category_id == category_id
+        Transaction.category_id.in_(category_ids)
     )
     if start_date:
         bounds_stmt = bounds_stmt.where(Transaction.date >= start_date)
@@ -68,7 +79,7 @@ async def get_category_spending_report(
             func.count(Transaction.id).label("cnt"),
         )
         .where(
-            Transaction.category_id == category_id,
+            Transaction.category_id.in_(category_ids),
             Transaction.date >= effective_start,
             Transaction.date <= effective_end,
         )
@@ -115,24 +126,34 @@ async def get_category_ranking_report(
     arbitrary period — "which category costs the most" across the whole
     range, unlike the month-scoped Dashboard breakdown or the
     single-category detail above."""
+    # Same subcategory-into-parent rollup as the Dashboard breakdown — see
+    # dashboard_service.get_dashboard_summary.
+    Parent = aliased(Category)
+    effective_id = func.coalesce(Category.parent_id, Category.id)
+    effective_name = func.coalesce(Parent.name, Category.name)
+    effective_color = func.coalesce(Parent.color, Category.color)
+    effective_icon = func.coalesce(Parent.icon, Category.icon)
+    effective_sort = func.coalesce(Parent.sort_order, Category.sort_order)
+
     stmt = (
         select(
-            Category.id,
-            Category.name,
-            Category.color,
-            Category.icon,
+            effective_id.label("category_id"),
+            effective_name.label("name"),
+            effective_color.label("color"),
+            effective_icon.label("icon"),
             func.sum(Transaction.amount).label("amount"),
             func.count(Transaction.id).label("cnt"),
         )
         .join(Category, Category.id == Transaction.category_id)
+        .outerjoin(Parent, Parent.id == Category.parent_id)
         .where(Category.kind == kind, Transaction.type == _KIND_TO_TRANSACTION_TYPE[kind])
     )
     if start_date:
         stmt = stmt.where(Transaction.date >= start_date)
     if end_date:
         stmt = stmt.where(Transaction.date <= end_date)
-    stmt = stmt.group_by(Category.id, Category.name, Category.color, Category.icon, Category.sort_order)
-    stmt = stmt.order_by(func.sum(Transaction.amount).desc(), Category.sort_order)
+    stmt = stmt.group_by(effective_id, effective_name, effective_color, effective_icon, effective_sort)
+    stmt = stmt.order_by(func.sum(Transaction.amount).desc(), effective_sort)
 
     rows = (await session.execute(stmt)).all()
     total_amount = sum((row.amount for row in rows), Decimal("0"))

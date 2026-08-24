@@ -37,6 +37,9 @@ class CategoryBackup(BaseModel):
     color: str
     sort_order: int
     is_default: bool
+    # Defaulted so a backup exported before subcategories existed still
+    # imports cleanly under the same format version.
+    parent_id: int | None = None
 
 
 class TransactionBackup(BaseModel):
@@ -136,6 +139,10 @@ class AppSettingsBackup(BaseModel):
     # Defaulted so a backup exported before this threshold existed still
     # imports cleanly under the same format version.
     risky_allocation_threshold_percent: int = 20
+    # Defaulted so a backup exported before idle-cash thresholds existed
+    # still imports cleanly under the same format version.
+    idle_cash_threshold_amount: Decimal = Decimal("1000")
+    idle_cash_threshold_days: int = 60
 
 
 class BackupPayload(BaseModel):

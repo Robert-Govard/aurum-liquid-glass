@@ -34,6 +34,9 @@ export interface Category {
   color: string;
   sort_order: number;
   is_default: boolean;
+  // Subcategory parent, one level deep only (a category whose own parent_id
+  // is set can't itself have children — enforced backend-side).
+  parent_id: number | null;
 }
 
 export interface CategoryInput {
@@ -42,6 +45,7 @@ export interface CategoryInput {
   icon?: string | null;
   color: string;
   sort_order?: number;
+  parent_id?: number | null;
 }
 
 // kind is fixed at creation on the backend (CategoryUpdate has no kind field).
@@ -50,6 +54,7 @@ export interface CategoryUpdateInput {
   icon?: string | null;
   color?: string;
   sort_order?: number;
+  parent_id?: number | null;
 }
 
 export interface Transaction {
@@ -365,5 +370,7 @@ export interface AppSettings {
   negative_cash_flow_threshold_months: number;
   net_worth_decline_threshold_months: number;
   risky_allocation_threshold_percent: number;
+  idle_cash_threshold_amount: string;
+  idle_cash_threshold_days: number;
 }
 

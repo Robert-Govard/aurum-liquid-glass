@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/Button";
 import { Input, Label, Select } from "@/components/ui/Input";
 import { CategoryColorPicker } from "@/components/categories/CategoryColorPicker";
 import { CategoryIconPicker } from "@/components/categories/CategoryIconPicker";
-import { useCreateCategory, useUpdateCategory } from "@/hooks/useCategories";
+import { useCategories, useCreateCategory, useUpdateCategory } from "@/hooks/useCategories";
+import { translateCategoryName } from "@/lib/categoryLabels";
 import { useTranslation, type TranslationKey } from "@/lib/i18n";
 import type { Category, CategoryKind } from "@/types";
 
@@ -20,11 +21,12 @@ interface CategoryFormModalProps {
 const KINDS: CategoryKind[] = ["expense", "income"];
 
 function emptyForm(kind: CategoryKind) {
-  return { name: "", kind, icon: "wallet", color: "#2a78d6" };
+  return { name: "", kind, icon: "wallet", color: "#2a78d6", parent_id: "" };
 }
 
 export function CategoryFormModal({ open, onClose, category, defaultKind }: CategoryFormModalProps) {
   const { t } = useTranslation();
+  const { data: allCategories } = useCategories();
   const createCategory = useCreateCategory();
   const updateCategory = useUpdateCategory();
 
@@ -35,11 +37,24 @@ export function CategoryFormModal({ open, onClose, category, defaultKind }: Cate
     if (!open) return;
     setForm(
       category
-        ? { name: category.name, kind: category.kind, icon: category.icon ?? "wallet", color: category.color }
+        ? {
+            name: category.name,
+            kind: category.kind,
+            icon: category.icon ?? "wallet",
+            color: category.color,
+            parent_id: category.parent_id ? String(category.parent_id) : "",
+          }
         : emptyForm(defaultKind)
     );
     setError(null);
   }, [open, category, defaultKind]);
+
+  // A category that already has subcategories can't become one itself
+  // (backend rejects it) — the parent picker is disabled in that case.
+  const hasChildren = category ? (allCategories ?? []).some((c) => c.parent_id === category.id) : false;
+  const parentCandidates = (allCategories ?? []).filter(
+    (c) => c.kind === form.kind && c.parent_id === null && c.id !== category?.id
+  );
 
   const isSaving = createCategory.isPending || updateCategory.isPending;
 
@@ -47,14 +62,16 @@ export function CategoryFormModal({ open, onClose, category, defaultKind }: Cate
     event.preventDefault();
     setError(null);
 
+    const parent_id = form.parent_id ? Number(form.parent_id) : null;
+
     try {
       if (category) {
         await updateCategory.mutateAsync({
           id: category.id,
-          input: { name: form.name, icon: form.icon, color: form.color },
+          input: { name: form.name, icon: form.icon, color: form.color, parent_id },
         });
       } else {
-        await createCategory.mutateAsync(form);
+        await createCategory.mutateAsync({ name: form.name, kind: form.kind, icon: form.icon, color: form.color, parent_id });
       }
       onClose();
     } catch {
@@ -82,7 +99,9 @@ export function CategoryFormModal({ open, onClose, category, defaultKind }: Cate
             id="category-kind"
             value={form.kind}
             disabled={Boolean(category)}
-            onChange={(event) => setForm((prev) => ({ ...prev, kind: event.target.value as CategoryKind }))}
+            onChange={(event) =>
+              setForm((prev) => ({ ...prev, kind: event.target.value as CategoryKind, parent_id: "" }))
+            }
           >
             {KINDS.map((kind) => (
               <option key={kind} value={kind}>
@@ -90,6 +109,24 @@ export function CategoryFormModal({ open, onClose, category, defaultKind }: Cate
               </option>
             ))}
           </Select>
+        </div>
+
+        <div>
+          <Label htmlFor="category-parent">{t("category.form.parentLabel")}</Label>
+          <Select
+            id="category-parent"
+            value={hasChildren ? "" : form.parent_id}
+            disabled={hasChildren}
+            onChange={(event) => setForm((prev) => ({ ...prev, parent_id: event.target.value }))}
+          >
+            <option value="">{t("category.form.noParent")}</option>
+            {parentCandidates.map((parent) => (
+              <option key={parent.id} value={parent.id}>
+                {translateCategoryName(parent.name)}
+              </option>
+            ))}
+          </Select>
+          {hasChildren && <p className="mt-1 text-xs text-text-muted">{t("category.form.hasChildrenHint")}</p>}
         </div>
 
         <div>

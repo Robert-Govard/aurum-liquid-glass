@@ -7,7 +7,7 @@ import { useCategories } from "@/hooks/useCategories";
 import { useCreateTransaction, useUpdateTransaction } from "@/hooks/useTransactions";
 import { useTranslation } from "@/lib/i18n";
 import { translateCategoryName } from "@/lib/categoryLabels";
-import type { Transaction, TransactionInput, TransactionType } from "@/types";
+import type { Category, Transaction, TransactionInput, TransactionType } from "@/types";
 
 interface TransactionFormModalProps {
   open: boolean;
@@ -32,7 +32,7 @@ const EMPTY_FORM = {
 };
 
 export function TransactionFormModal({ open, onClose, transaction }: TransactionFormModalProps) {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const { data: accounts } = useAccounts();
   const { data: categories } = useCategories();
   const createTransaction = useCreateTransaction();
@@ -61,9 +61,19 @@ export function TransactionFormModal({ open, onClose, transaction }: Transaction
     setError(null);
   }, [open, transaction, accounts]);
 
-  const relevantCategories = (categories ?? []).filter((category) =>
-    form.type === "income" ? category.kind === "income" : category.kind === "expense"
-  );
+  // Subcategories are listed right under their parent (not scattered by
+  // sort_order) so the hierarchy set up on the Categories page reads the
+  // same way here.
+  const kindCategories = (categories ?? [])
+    .filter((category) => (form.type === "income" ? category.kind === "income" : category.kind === "expense"))
+    .sort((a, b) => translateCategoryName(a.name).localeCompare(translateCategoryName(b.name), language));
+  const relevantCategories: (Category & { indented?: boolean })[] = [];
+  for (const parent of kindCategories.filter((category) => category.parent_id === null)) {
+    relevantCategories.push(parent);
+    for (const child of kindCategories.filter((category) => category.parent_id === parent.id)) {
+      relevantCategories.push({ ...child, indented: true });
+    }
+  }
 
   const isSaving = createTransaction.isPending || updateTransaction.isPending;
 
@@ -217,6 +227,7 @@ export function TransactionFormModal({ open, onClose, transaction }: Transaction
               <option value="">{t("transactions.form.noCategory")}</option>
               {relevantCategories.map((category) => (
                 <option key={category.id} value={category.id}>
+                  {category.indented ? `    ↳ ` : ""}
                   {translateCategoryName(category.name)}
                 </option>
               ))}
