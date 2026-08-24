@@ -31,6 +31,10 @@ DEFAULT_INCOME_CATEGORIES = [
     ("Freelance", "briefcase", "#1baf7a"),
     ("Investments", "trending-up", "#4a3aa7"),
     ("Gifts", "gift", "#e87ba4"),
+    ("Business Income", "building-2", "#eb6834"),
+    ("Rental Income", "key", "#eda100"),
+    ("Benefits", "hand-coins", "#008300"),
+    ("Item Sales", "tag", "#e34948"),
     ("Other Income", "plus-circle", "#898781"),
 ]
 

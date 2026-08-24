@@ -324,11 +324,10 @@ const ru = {
   "cashFlow.net": "Баланс",
   "cashFlow.noData": "Нет данных за выбранный период.",
 
-  // Default seeded categories (backend/app/db/seed.py) — there's no
-  // category-management UI yet, so every category currently in the
-  // database is one of these; translateCategoryName() matches on the exact
-  // seeded English name and falls through unchanged for anything else
-  // (a renamed default, or a future custom category).
+  // Default seeded categories (backend/app/db/seed.py) — translateCategoryName()
+  // matches on the exact seeded English name and falls through unchanged
+  // for anything else (a renamed default, or a custom category added via
+  // the category-management UI).
   "category.housingUtilities": "Жильё и коммуналка",
   "category.groceries": "Продукты",
   "category.diningOut": "Кафе и рестораны",
@@ -341,6 +340,10 @@ const ru = {
   "category.freelance": "Фриланс",
   "category.investments": "Инвестиции",
   "category.gifts": "Подарки",
+  "category.businessIncome": "Доход от бизнеса",
+  "category.rentalIncome": "Сдача недвижимости",
+  "category.benefits": "Пособия и соцвыплаты",
+  "category.itemSales": "Продажа личных вещей",
   "category.otherIncome": "Прочий доход",
 
   "months.jan": "Янв",
@@ -689,6 +692,10 @@ const en: Record<keyof typeof ru, string> = {
   "category.freelance": "Freelance",
   "category.investments": "Investments",
   "category.gifts": "Gifts",
+  "category.businessIncome": "Business Income",
+  "category.rentalIncome": "Rental Income",
+  "category.benefits": "Benefits",
+  "category.itemSales": "Item Sales",
   "category.otherIncome": "Other Income",
 
   "months.jan": "Jan",

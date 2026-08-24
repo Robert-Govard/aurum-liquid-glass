@@ -11,8 +11,10 @@ import {
   Gem,
   Gift,
   GraduationCap,
+  HandCoins,
   HeartPulse,
   Home,
+  Key,
   MoreHorizontal,
   Package,
   Plane,
@@ -26,6 +28,7 @@ import {
   Smartphone,
   Sofa,
   Sparkles,
+  Tag,
   TrendingUp,
   Truck,
   Utensils,
@@ -71,6 +74,9 @@ const ICON_MAP: Record<string, LucideIcon> = {
   smartphone: Smartphone,
   sofa: Sofa,
   sparkles: Sparkles,
+  tag: Tag,
+  "hand-coins": HandCoins,
+  key: Key,
   truck: Truck,
   // lucide-react dropped brand/trademarked glyphs (no "Youtube" icon) — a
   // generic video-camera icon is the closest available stand-in.

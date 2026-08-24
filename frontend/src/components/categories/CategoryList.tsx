@@ -1,4 +1,5 @@
 import { Pencil, Trash2 } from "lucide-react";
+import { translateCategoryName } from "@/lib/categoryLabels";
 import { getCategoryIcon } from "@/lib/icons";
 import { useTranslation } from "@/lib/i18n";
 import type { Category } from "@/types";
@@ -30,7 +31,7 @@ export function CategoryList({ items, onEdit, onDelete }: CategoryListProps) {
               <Icon size={15} />
             </span>
             <span className="flex min-w-0 flex-1 items-center gap-1.5 truncate text-sm font-medium text-text-primary">
-              <span className="truncate">{category.name}</span>
+              <span className="truncate">{translateCategoryName(category.name)}</span>
               {category.is_default && (
                 <span className="shrink-0 rounded bg-surface-2 px-1 py-0.5 text-[10px] leading-none text-text-muted">
                   {t("category.defaultBadge")}
