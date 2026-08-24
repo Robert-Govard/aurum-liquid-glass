@@ -53,6 +53,7 @@ export function TransactionsTable({ items, onEdit, onDelete, onJumpToMonth }: Tr
                   {formatTransactionDate(tx.date, Boolean(onJumpToMonth))} · {tx.account.name}
                   {isTransfer && tx.transfer_account_id ? ` ${t("transactions.transferSuffix")}` : ""}
                   {tx.category ? ` · ${translateCategoryName(tx.category.name)}` : ""}
+                  {tx.tags.length > 0 ? ` · ${tx.tags.map((tag) => tag.name).join(", ")}` : ""}
                 </span>
               </span>
 

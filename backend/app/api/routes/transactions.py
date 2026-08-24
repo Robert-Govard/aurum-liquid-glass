@@ -9,12 +9,24 @@ from sqlalchemy.orm import selectinload
 from app.api.deps import get_session
 from app.models.category import Category
 from app.models.enums import CategoryKind, TransactionType
+from app.models.tag import Tag
 from app.models.transaction import Transaction
 from app.schemas.transaction import TransactionCreate, TransactionPage, TransactionRead, TransactionUpdate
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
 
-_EAGER = (selectinload(Transaction.account), selectinload(Transaction.category))
+_EAGER = (selectinload(Transaction.account), selectinload(Transaction.category), selectinload(Transaction.tags))
+
+
+async def _resolve_tags(session: AsyncSession, tag_ids: list[int]) -> list[Tag]:
+    if not tag_ids:
+        return []
+    result = await session.execute(select(Tag).where(Tag.id.in_(tag_ids)))
+    tags = list(result.scalars().all())
+    missing = set(tag_ids) - {tag.id for tag in tags}
+    if missing:
+        raise HTTPException(status_code=400, detail=f"Unknown tag id(s): {sorted(missing)}")
+    return tags
 
 _TYPE_TO_CATEGORY_KIND = {
     TransactionType.INCOME: CategoryKind.INCOME,
@@ -50,6 +62,7 @@ async def list_transactions(
     end_date: date_ | None = Query(default=None),
     account_id: int | None = None,
     category_id: int | None = None,
+    tag_id: int | None = None,
     type: TransactionType | None = None,
     search: str | None = Query(default=None, min_length=1, max_length=255),
     sort: Literal["date_desc", "amount_desc", "amount_asc"] = Query(default="date_desc"),
@@ -78,6 +91,9 @@ async def list_transactions(
     if category_id is not None:
         stmt = stmt.where(Transaction.category_id == category_id)
         count_stmt = count_stmt.where(Transaction.category_id == category_id)
+    if tag_id is not None:
+        stmt = stmt.where(Transaction.tags.any(Tag.id == tag_id))
+        count_stmt = count_stmt.where(Transaction.tags.any(Tag.id == tag_id))
     if type is not None:
         stmt = stmt.where(Transaction.type == type)
         count_stmt = count_stmt.where(Transaction.type == type)
@@ -127,7 +143,9 @@ async def list_transaction_years(session: AsyncSession = Depends(get_session)) -
 @router.post("", response_model=TransactionRead, status_code=201)
 async def create_transaction(payload: TransactionCreate, session: AsyncSession = Depends(get_session)) -> Transaction:
     await _ensure_category_matches_type(session, payload.category_id, payload.type)
-    transaction = Transaction(**payload.model_dump())
+    fields = payload.model_dump(exclude={"tag_ids"})
+    transaction = Transaction(**fields)
+    transaction.tags = await _resolve_tags(session, payload.tag_ids)
     session.add(transaction)
     await session.commit()
     refreshed = await session.execute(
@@ -140,15 +158,20 @@ async def create_transaction(payload: TransactionCreate, session: AsyncSession =
 async def update_transaction(
     transaction_id: int, payload: TransactionUpdate, session: AsyncSession = Depends(get_session)
 ) -> Transaction:
-    transaction = await session.get(Transaction, transaction_id)
+    # Eager-loads tags — assigning transaction.tags below would otherwise lazy
+    # -load the current collection first to diff against, which async
+    # SQLAlchemy can't do outside an explicit await (MissingGreenlet).
+    transaction = await session.get(Transaction, transaction_id, options=[selectinload(Transaction.tags)])
     if transaction is None:
         raise HTTPException(status_code=404, detail="Transaction not found")
-    updates = payload.model_dump(exclude_unset=True)
+    updates = payload.model_dump(exclude_unset=True, exclude={"tag_ids"})
     effective_type = updates.get("type", transaction.type)
     effective_category_id = updates.get("category_id", transaction.category_id)
     await _ensure_category_matches_type(session, effective_category_id, effective_type)
     for field, value in updates.items():
         setattr(transaction, field, value)
+    if payload.tag_ids is not None:
+        transaction.tags = await _resolve_tags(session, payload.tag_ids)
     await session.commit()
     refreshed = await session.execute(
         select(Transaction).options(*_EAGER).where(Transaction.id == transaction_id)

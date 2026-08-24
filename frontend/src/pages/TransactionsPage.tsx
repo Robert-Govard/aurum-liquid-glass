@@ -10,6 +10,7 @@ import { TransactionsTable } from "@/components/transactions/TransactionsTable";
 import { TransactionFormModal } from "@/components/transactions/TransactionFormModal";
 import { useTransactions, useDeleteTransaction, useTransactionYears } from "@/hooks/useTransactions";
 import { useCategories } from "@/hooks/useCategories";
+import { useTags } from "@/hooks/useTags";
 import type { TransactionSort } from "@/api/transactions";
 import { useTranslation } from "@/lib/i18n";
 import { translateCategoryName } from "@/lib/categoryLabels";
@@ -44,6 +45,7 @@ export function TransactionsPage() {
   const [month, setMonth] = useState(() => parseMonthParam(searchParams.get("month"), now.getMonth() + 1));
   const [type, setType] = useState<TransactionType | "">("");
   const [categoryId, setCategoryId] = useState<string>("");
+  const [tagId, setTagId] = useState<string>("");
   const [sort, setSort] = useState<TransactionSort>("date_desc");
   const [page, setPage] = useState(1);
 
@@ -64,6 +66,7 @@ export function TransactionsPage() {
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 
   const { data: categories } = useCategories();
+  const { data: tags } = useTags();
   const { data: years } = useTransactionYears();
   const { data, isLoading, isError } = useTransactions({
     // A search looks for a purchase from an unknown month, so it must span
@@ -73,6 +76,7 @@ export function TransactionsPage() {
     search: isSearching ? search : undefined,
     type: type || undefined,
     category_id: categoryId ? Number(categoryId) : undefined,
+    tag_id: tagId ? Number(tagId) : undefined,
     sort,
     page,
     page_size: PAGE_SIZE,
@@ -193,6 +197,23 @@ export function TransactionsPage() {
             </option>
           ))}
         </Select>
+        {tags && tags.length > 0 && (
+          <Select
+            value={tagId}
+            onChange={(event) => {
+              setTagId(event.target.value);
+              setPage(1);
+            }}
+            className="sm:w-48"
+          >
+            <option value="">{t("transactions.allTags")}</option>
+            {tags.map((tag) => (
+              <option key={tag.id} value={tag.id}>
+                {tag.name}
+              </option>
+            ))}
+          </Select>
+        )}
         <Select
           value={sort}
           onChange={(event) => {

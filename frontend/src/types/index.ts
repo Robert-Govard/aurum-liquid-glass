@@ -57,6 +57,11 @@ export interface CategoryUpdateInput {
   parent_id?: number | null;
 }
 
+export interface Tag {
+  id: number;
+  name: string;
+}
+
 export interface Transaction {
   id: number;
   account_id: number;
@@ -70,6 +75,7 @@ export interface Transaction {
   date: string;
   account: Account;
   category: Category | null;
+  tags: Tag[];
 }
 
 export interface TransactionPage {
@@ -89,6 +95,9 @@ export interface TransactionInput {
   merchant?: string | null;
   notes?: string | null;
   date: string;
+  // Omitted -> tags untouched on update; sent (even as []) -> replaces the
+  // full tag set. Always sent on create (defaults to []).
+  tag_ids?: number[];
 }
 
 export interface RecurringTransaction {

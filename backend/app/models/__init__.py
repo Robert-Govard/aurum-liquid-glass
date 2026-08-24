@@ -5,6 +5,7 @@ from app.models.category import Category
 from app.models.goal import Goal, GoalContribution
 from app.models.recurring import RecurringTransaction
 from app.models.settings import AppSettings
+from app.models.tag import Tag
 from app.models.transaction import Transaction
 
 __all__ = [
@@ -17,5 +18,6 @@ __all__ = [
     "Goal",
     "GoalContribution",
     "RecurringTransaction",
+    "Tag",
     "Transaction",
 ]

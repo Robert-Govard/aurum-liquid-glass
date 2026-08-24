@@ -7,6 +7,7 @@ from app.core.text import capitalize_first_letter
 from app.models.enums import TransactionType
 from app.schemas.account import AccountRead
 from app.schemas.category import CategoryRead
+from app.schemas.tag import TagRead
 
 
 class TransactionBase(BaseModel):
@@ -41,7 +42,7 @@ class TransactionBase(BaseModel):
 
 
 class TransactionCreate(TransactionBase):
-    pass
+    tag_ids: list[int] = Field(default_factory=list)
 
 
 class TransactionUpdate(BaseModel):
@@ -54,6 +55,8 @@ class TransactionUpdate(BaseModel):
     merchant: str | None = Field(default=None, max_length=150)
     notes: str | None = None
     date: date_ | None = None
+    # Omitted -> tags untouched; sent (even as []) -> replaces the full tag set.
+    tag_ids: list[int] | None = None
 
     @field_validator("description")
     @classmethod
@@ -67,6 +70,7 @@ class TransactionRead(TransactionBase):
     id: int
     account: AccountRead
     category: CategoryRead | None = None
+    tags: list[TagRead] = Field(default_factory=list)
 
 
 class TransactionPage(BaseModel):

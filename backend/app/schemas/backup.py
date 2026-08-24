@@ -42,6 +42,13 @@ class CategoryBackup(BaseModel):
     parent_id: int | None = None
 
 
+class TagBackup(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+
+
 class TransactionBackup(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -55,6 +62,11 @@ class TransactionBackup(BaseModel):
     merchant: str | None
     notes: str | None
     date: date_
+    # Defaulted so a backup exported before tags existed still imports
+    # cleanly under the same format version. Not a plain column — populated
+    # explicitly in build_backup() from the `tags` relationship, since
+    # from_attributes can't map a `tags` relationship to a `tag_ids` field.
+    tag_ids: list[int] = Field(default_factory=list)
 
 
 class AssetBackup(BaseModel):
@@ -155,6 +167,9 @@ class BackupPayload(BaseModel):
     app_version: str
     accounts: list[AccountBackup]
     categories: list[CategoryBackup]
+    # Defaulted so a backup exported before tags existed still imports
+    # cleanly under the same format version.
+    tags: list[TagBackup] = Field(default_factory=list)
     transactions: list[TransactionBackup]
     assets: list[AssetBackup]
     asset_valuations: list[AssetValuationBackup]

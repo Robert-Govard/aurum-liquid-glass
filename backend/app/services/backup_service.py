@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 from fastapi import HTTPException
 from sqlalchemy import delete, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.config import APP_VERSION
 from app.models.account import Account
@@ -23,6 +24,7 @@ from app.models.category import Category
 from app.models.goal import Goal, GoalContribution
 from app.models.recurring import RecurringTransaction
 from app.models.settings import AppSettings
+from app.models.tag import Tag
 from app.models.transaction import Transaction
 from app.schemas.backup import (
     AccountBackup,
@@ -35,6 +37,7 @@ from app.schemas.backup import (
     GoalBackup,
     GoalContributionBackup,
     RecurringTransactionBackup,
+    TagBackup,
     TransactionBackup,
 )
 
@@ -44,7 +47,8 @@ BACKUP_FORMAT_VERSION = 1
 async def build_backup(session: AsyncSession) -> BackupPayload:
     accounts = (await session.execute(select(Account))).scalars().all()
     categories = (await session.execute(select(Category))).scalars().all()
-    transactions = (await session.execute(select(Transaction))).scalars().all()
+    tags = (await session.execute(select(Tag))).scalars().all()
+    transactions = (await session.execute(select(Transaction).options(selectinload(Transaction.tags)))).scalars().all()
     assets = (await session.execute(select(Asset))).scalars().all()
     valuations = (await session.execute(select(AssetValuation))).scalars().all()
     budgets = (await session.execute(select(Budget))).scalars().all()
@@ -59,7 +63,13 @@ async def build_backup(session: AsyncSession) -> BackupPayload:
         app_version=APP_VERSION,
         accounts=[AccountBackup.model_validate(row) for row in accounts],
         categories=[CategoryBackup.model_validate(row) for row in categories],
-        transactions=[TransactionBackup.model_validate(row) for row in transactions],
+        tags=[TagBackup.model_validate(row) for row in tags],
+        transactions=[
+            TransactionBackup.model_validate(row, from_attributes=True).model_copy(
+                update={"tag_ids": [tag.id for tag in row.tags]}
+            )
+            for row in transactions
+        ],
         assets=[AssetBackup.model_validate(row) for row in assets],
         asset_valuations=[AssetValuationBackup.model_validate(row) for row in valuations],
         budgets=[BudgetBackup.model_validate(row) for row in budgets],
@@ -74,6 +84,7 @@ def _validate_references(payload: BackupPayload) -> None:
     account_ids = {row.id for row in payload.accounts}
     category_ids = {row.id for row in payload.categories}
     asset_ids = {row.id for row in payload.assets}
+    tag_ids = {row.id for row in payload.tags}
 
     for c in payload.categories:
         if c.parent_id is not None and c.parent_id not in category_ids:
@@ -88,6 +99,9 @@ def _validate_references(payload: BackupPayload) -> None:
             )
         if t.category_id is not None and t.category_id not in category_ids:
             raise HTTPException(400, f"Transaction {t.id} references unknown category_id {t.category_id}")
+        for tag_id in t.tag_ids:
+            if tag_id not in tag_ids:
+                raise HTTPException(400, f"Transaction {t.id} references unknown tag_id {tag_id}")
 
     for v in payload.asset_valuations:
         if v.asset_id not in asset_ids:
@@ -144,7 +158,10 @@ async def restore_backup(session: AsyncSession, payload: BackupPayload) -> None:
         await session.execute(delete(GoalContribution))
         await session.execute(delete(Goal))
         await session.execute(delete(RecurringTransaction))
+        # Deleting transactions cascades transaction_tags rows (ON DELETE
+        # CASCADE) — tags themselves still need their own delete.
         await session.execute(delete(Transaction))
+        await session.execute(delete(Tag))
         await session.execute(delete(Asset))
         await session.execute(delete(Category))
         await session.execute(delete(Account))
@@ -158,7 +175,22 @@ async def restore_backup(session: AsyncSession, payload: BackupPayload) -> None:
         session.add_all(Account(**row.model_dump()) for row in payload.accounts)
         session.add_all(Category(**row.model_dump()) for row in categories_in_order)
         session.add_all(Asset(**row.model_dump()) for row in payload.assets)
-        session.add_all(Transaction(**row.model_dump()) for row in payload.transactions)
+
+        # Tags and transactions are kept in id-keyed dicts (rather than a
+        # plain add_all) — transaction.tags is a relationship, not a column
+        # in model_dump(), so it has to be wired up from live ORM objects
+        # once everything is flushed and has real identities.
+        tags_by_id = {row.id: Tag(**row.model_dump()) for row in payload.tags}
+        session.add_all(tags_by_id.values())
+        # tags=[] at construction keeps the collection "loaded" on the
+        # transient object — reassigning it after flush (below) would
+        # otherwise trigger an implicit lazy-load, which async SQLAlchemy
+        # can't do outside an explicit await (MissingGreenlet).
+        transactions_by_id = {
+            row.id: Transaction(**row.model_dump(exclude={"tag_ids"}), tags=[]) for row in payload.transactions
+        }
+        session.add_all(transactions_by_id.values())
+
         session.add_all(AssetValuation(**row.model_dump()) for row in payload.asset_valuations)
         session.add_all(Budget(**row.model_dump()) for row in payload.budgets)
         session.add_all(Goal(**row.model_dump()) for row in payload.goals)
@@ -166,8 +198,15 @@ async def restore_backup(session: AsyncSession, payload: BackupPayload) -> None:
         session.add_all(RecurringTransaction(**row.model_dump()) for row in payload.recurring_transactions)
         await session.flush()
 
+        for row in payload.transactions:
+            if row.tag_ids:
+                transactions_by_id[row.id].tags = [tags_by_id[tag_id] for tag_id in row.tag_ids]
+        if any(row.tag_ids for row in payload.transactions):
+            await session.flush()
+
         await _reset_sequence(session, "accounts", payload.accounts)
         await _reset_sequence(session, "categories", payload.categories)
+        await _reset_sequence(session, "tags", payload.tags)
         await _reset_sequence(session, "assets", payload.assets)
         await _reset_sequence(session, "transactions", payload.transactions)
         await _reset_sequence(session, "asset_valuations", payload.asset_valuations)

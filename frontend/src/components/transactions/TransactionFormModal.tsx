@@ -2,12 +2,13 @@ import { useEffect, useState } from "react";
 import { Dialog } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, Select } from "@/components/ui/Input";
+import { TagInput } from "@/components/transactions/TagInput";
 import { useAccounts } from "@/hooks/useAccounts";
 import { useCategories } from "@/hooks/useCategories";
 import { useCreateTransaction, useUpdateTransaction } from "@/hooks/useTransactions";
 import { useTranslation } from "@/lib/i18n";
 import { translateCategoryName } from "@/lib/categoryLabels";
-import type { Category, Transaction, TransactionInput, TransactionType } from "@/types";
+import type { Category, Tag, Transaction, TransactionInput, TransactionType } from "@/types";
 
 interface TransactionFormModalProps {
   open: boolean;
@@ -39,6 +40,7 @@ export function TransactionFormModal({ open, onClose, transaction }: Transaction
   const updateTransaction = useUpdateTransaction();
 
   const [form, setForm] = useState(EMPTY_FORM);
+  const [tags, setTags] = useState<Tag[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -55,8 +57,10 @@ export function TransactionFormModal({ open, onClose, transaction }: Transaction
         notes: transaction.notes ?? "",
         date: transaction.date,
       });
+      setTags(transaction.tags);
     } else {
       setForm({ ...EMPTY_FORM, account_id: accounts?.[0] ? String(accounts[0].id) : "" });
+      setTags([]);
     }
     setError(null);
   }, [open, transaction, accounts]);
@@ -104,6 +108,7 @@ export function TransactionFormModal({ open, onClose, transaction }: Transaction
       merchant: form.merchant || null,
       notes: form.notes || null,
       date: form.date,
+      tag_ids: tags.map((tag) => tag.id),
     };
 
     try {
@@ -251,6 +256,11 @@ export function TransactionFormModal({ open, onClose, transaction }: Transaction
             value={form.notes}
             onChange={(event) => setForm((prev) => ({ ...prev, notes: event.target.value }))}
           />
+        </div>
+
+        <div>
+          <Label htmlFor="transaction-tags">{t("transactions.form.tagsLabel")}</Label>
+          <TagInput value={tags} onChange={setTags} />
         </div>
 
         {error && <p className="text-sm text-danger">{error}</p>}

@@ -10,6 +10,7 @@ export interface TransactionFilters {
   end_date?: string;
   account_id?: number;
   category_id?: number;
+  tag_id?: number;
   type?: string;
   search?: string;
   sort?: TransactionSort;

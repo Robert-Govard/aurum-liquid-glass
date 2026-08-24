@@ -7,6 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 from app.models.enums import TransactionType
 from app.models.mixins import TimestampMixin
+from app.models.tag import transaction_tags
 
 
 class Transaction(Base, TimestampMixin):
@@ -33,3 +34,4 @@ class Transaction(Base, TimestampMixin):
     account: Mapped["Account"] = relationship(back_populates="transactions", foreign_keys=[account_id])
     transfer_account: Mapped["Account | None"] = relationship(foreign_keys=[transfer_account_id])
     category: Mapped["Category | None"] = relationship(back_populates="transactions")
+    tags: Mapped[list["Tag"]] = relationship(secondary=transaction_tags, back_populates="transactions")
