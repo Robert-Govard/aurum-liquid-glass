@@ -1,8 +1,9 @@
 from datetime import date as date_
 from decimal import Decimal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
+from app.core.text import capitalize_first_letter
 from app.models.enums import RecurringFrequency, TransactionType
 
 
@@ -18,6 +19,13 @@ class RecurringTransactionCreate(BaseModel):
     frequency: RecurringFrequency
     anchor_date: date_
 
+    # Keeps templates consistent with regular transactions — see
+    # app/schemas/transaction.py for the same rule.
+    @field_validator("description")
+    @classmethod
+    def _capitalize_description(cls, value: str) -> str:
+        return capitalize_first_letter(value)
+
 
 class RecurringTransactionUpdate(BaseModel):
     account_id: int | None = None
@@ -31,6 +39,11 @@ class RecurringTransactionUpdate(BaseModel):
     frequency: RecurringFrequency | None = None
     anchor_date: date_ | None = None
     is_active: bool | None = None
+
+    @field_validator("description")
+    @classmethod
+    def _capitalize_description(cls, value: str | None) -> str | None:
+        return capitalize_first_letter(value) if value is not None else None
 
 
 class RecurringTransactionRead(BaseModel):

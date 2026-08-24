@@ -24,6 +24,26 @@ async def test_create_expense_rejects_income_category(client: AsyncClient, accou
     assert resp.status_code == 400
 
 
+async def test_create_capitalizes_description_first_letter(client: AsyncClient, account_id, categories):
+    category = categories["Groceries"]
+    resp = await client.post(
+        "/transactions",
+        json=_txn(account_id, category_id=category["id"], description="траты на продукты"),
+    )
+    assert resp.status_code == 201
+    assert resp.json()["description"] == "Траты на продукты"
+
+
+async def test_update_capitalizes_description_first_letter(client: AsyncClient, account_id, categories):
+    category = categories["Groceries"]
+    created = await client.post("/transactions", json=_txn(account_id, category_id=category["id"]))
+    txn_id = created.json()["id"]
+
+    resp = await client.patch(f"/transactions/{txn_id}", json={"description": "new coffee shop"})
+    assert resp.status_code == 200
+    assert resp.json()["description"] == "New coffee shop"
+
+
 async def test_create_income_rejects_expense_category(client: AsyncClient, account_id, categories):
     expense_category = categories["Groceries"]
     resp = await client.post(
@@ -97,7 +117,7 @@ async def test_list_filters_by_year_and_month_excludes_other_months(client: Asyn
     resp = await client.get("/transactions", params={"year": 2021, "month": 8})
     body = resp.json()
     assert body["total"] == 1
-    assert [item["description"] for item in body["items"]] == ["august transaction"]
+    assert [item["description"] for item in body["items"]] == ["August transaction"]
 
 
 async def test_list_filters_by_explicit_date_range(client: AsyncClient, account_id, categories):
@@ -209,7 +229,7 @@ async def test_update_transaction_persists_changes(client: AsyncClient, account_
     resp = await client.patch(f"/transactions/{txn_id}", json={"amount": "99.99", "description": "updated"})
     assert resp.status_code == 200
     assert money(resp.json()["amount"]) == Decimal("99.99")
-    assert resp.json()["description"] == "updated"
+    assert resp.json()["description"] == "Updated"
 
     refetched = await client.get("/transactions", params={"page_size": 1})
     assert money(refetched.json()["items"][0]["amount"]) == Decimal("99.99")

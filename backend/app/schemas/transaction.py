@@ -1,8 +1,9 @@
 from datetime import date as date_
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.core.text import capitalize_first_letter
 from app.models.enums import TransactionType
 from app.schemas.account import AccountRead
 from app.schemas.category import CategoryRead
@@ -18,6 +19,13 @@ class TransactionBase(BaseModel):
     merchant: str | None = Field(default=None, max_length=150)
     notes: str | None = None
     date: date_
+
+    # Auto-capitalizes "траты на продукты" -> "Траты на продукты" so mixed
+    # casing from quick manual entry doesn't need fixing by hand later.
+    @field_validator("description")
+    @classmethod
+    def _capitalize_description(cls, value: str) -> str:
+        return capitalize_first_letter(value)
 
     @model_validator(mode="after")
     def _validate_type_specific_fields(self) -> "TransactionBase":
@@ -46,6 +54,11 @@ class TransactionUpdate(BaseModel):
     merchant: str | None = Field(default=None, max_length=150)
     notes: str | None = None
     date: date_ | None = None
+
+    @field_validator("description")
+    @classmethod
+    def _capitalize_description(cls, value: str | None) -> str | None:
+        return capitalize_first_letter(value) if value is not None else None
 
 
 class TransactionRead(TransactionBase):
