@@ -5,11 +5,20 @@ import { Button } from "@/components/ui/Button";
 import { CategoryFormModal } from "@/components/categories/CategoryFormModal";
 import { CategoryList } from "@/components/categories/CategoryList";
 import { useCategories, useDeleteCategory } from "@/hooks/useCategories";
+import { translateCategoryName } from "@/lib/categoryLabels";
 import { useTranslation } from "@/lib/i18n";
 import type { Category, CategoryKind } from "@/types";
 
+// Alphabetical by displayed (translated) name — same locale-aware sort
+// BudgetFormModal's category picker uses, so a default category shown as
+// its localized name sorts by that, not its raw stored English name.
+function byName(language: string) {
+  return (a: Category, b: Category) =>
+    translateCategoryName(a.name).localeCompare(translateCategoryName(b.name), language);
+}
+
 export function CategoriesPage() {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const { data: categories, isLoading } = useCategories();
   const deleteCategory = useDeleteCategory();
 
@@ -38,8 +47,8 @@ export function CategoriesPage() {
     }
   }
 
-  const expenseCategories = (categories ?? []).filter((category) => category.kind === "expense");
-  const incomeCategories = (categories ?? []).filter((category) => category.kind === "income");
+  const expenseCategories = (categories ?? []).filter((category) => category.kind === "expense").sort(byName(language));
+  const incomeCategories = (categories ?? []).filter((category) => category.kind === "income").sort(byName(language));
 
   return (
     <div className="space-y-5">
