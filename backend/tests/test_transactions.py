@@ -16,6 +16,44 @@ from httpx import AsyncClient
 from tests.helpers import money, txn_payload as _txn
 
 
+async def test_bulk_create_transactions(client: AsyncClient, account_id, categories):
+    groceries = categories["Groceries"]["id"]
+    resp = await client.post(
+        "/transactions/bulk",
+        json={
+            "items": [
+                _txn(account_id, category_id=groceries, description="csv row 1", date="2026-01-01"),
+                _txn(account_id, category_id=groceries, description="csv row 2", date="2026-01-02"),
+            ]
+        },
+    )
+    assert resp.status_code == 201
+    assert resp.json()["created"] == 2
+
+    listed = await client.get("/transactions", params={"year": 2026, "month": 1})
+    assert listed.json()["total"] == 2
+
+
+async def test_bulk_create_is_all_or_nothing(client: AsyncClient, account_id, categories):
+    groceries = categories["Groceries"]["id"]
+    salary = categories["Salary"]["id"]
+    resp = await client.post(
+        "/transactions/bulk",
+        json={
+            "items": [
+                _txn(account_id, category_id=groceries, description="good row"),
+                # An expense using an income category — rejected, and it
+                # should take the whole batch down with it.
+                _txn(account_id, category_id=salary, description="bad row"),
+            ]
+        },
+    )
+    assert resp.status_code == 400
+
+    listed = await client.get("/transactions")
+    assert listed.json()["total"] == 0
+
+
 async def test_create_expense_rejects_income_category(client: AsyncClient, account_id, categories):
     income_category = categories["Salary"]
     resp = await client.post(

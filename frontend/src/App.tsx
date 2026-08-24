@@ -10,6 +10,7 @@ import { AdvicePage } from "@/pages/AdvicePage";
 import { BudgetPage } from "@/pages/BudgetPage";
 import { CashFlowPage } from "@/pages/CashFlowPage";
 import { CategoriesPage } from "@/pages/CategoriesPage";
+import { CsvImportPage } from "@/pages/CsvImportPage";
 import { DashboardPage } from "@/pages/DashboardPage";
 import { GoalsPage } from "@/pages/GoalsPage";
 import { NetWorthPage } from "@/pages/NetWorthPage";
@@ -50,6 +51,7 @@ export default function App() {
             <Route path="/categories" element={<CategoriesPage />} />
             <Route path="/cash-flow" element={<CashFlowPage />} />
             <Route path="/transactions" element={<TransactionsPage />} />
+            <Route path="/transactions/import" element={<CsvImportPage />} />
             <Route path="/reports" element={<ReportsPage />} />
             <Route path="/budget" element={<BudgetPage />} />
             <Route path="/advice" element={<AdvicePage />} />

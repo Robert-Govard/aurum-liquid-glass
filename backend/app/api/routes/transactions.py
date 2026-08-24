@@ -11,7 +11,14 @@ from app.models.category import Category
 from app.models.enums import CategoryKind, TransactionType
 from app.models.tag import Tag
 from app.models.transaction import Transaction
-from app.schemas.transaction import TransactionCreate, TransactionPage, TransactionRead, TransactionUpdate
+from app.schemas.transaction import (
+    TransactionBulkCreate,
+    TransactionBulkCreateResult,
+    TransactionCreate,
+    TransactionPage,
+    TransactionRead,
+    TransactionUpdate,
+)
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
 
@@ -152,6 +159,27 @@ async def create_transaction(payload: TransactionCreate, session: AsyncSession =
         select(Transaction).options(*_EAGER).where(Transaction.id == transaction.id)
     )
     return refreshed.scalar_one()
+
+
+@router.post("/bulk", response_model=TransactionBulkCreateResult, status_code=201)
+async def bulk_create_transactions(
+    payload: TransactionBulkCreate, session: AsyncSession = Depends(get_session)
+) -> TransactionBulkCreateResult:
+    """CSV import lands here — see schemas.TransactionBulkCreate. All rows
+    are validated before any is added, so a bad row 400s the whole request
+    instead of leaving a half-imported statement behind."""
+    for item in payload.items:
+        await _ensure_category_matches_type(session, item.category_id, item.type)
+
+    transactions = []
+    for item in payload.items:
+        transaction = Transaction(**item.model_dump(exclude={"tag_ids"}))
+        transaction.tags = await _resolve_tags(session, item.tag_ids)
+        transactions.append(transaction)
+
+    session.add_all(transactions)
+    await session.commit()
+    return TransactionBulkCreateResult(created=len(transactions))
 
 
 @router.patch("/{transaction_id}", response_model=TransactionRead)

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  bulkCreateTransactions,
   createTransaction,
   deleteTransaction,
   fetchTransactions,
@@ -52,6 +53,14 @@ export function useUpdateTransaction() {
   return useMutation({
     mutationFn: ({ id, input }: { id: number; input: Partial<TransactionInput> }) =>
       updateTransaction(id, input),
+    onSuccess: invalidate,
+  });
+}
+
+export function useBulkCreateTransactions() {
+  const invalidate = useInvalidateAfterTransactionChange();
+  return useMutation({
+    mutationFn: (items: TransactionInput[]) => bulkCreateTransactions(items),
     onSuccess: invalidate,
   });
 }

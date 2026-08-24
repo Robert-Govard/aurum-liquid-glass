@@ -37,6 +37,12 @@ export function createTransaction(input: TransactionInput) {
   return api.post<Transaction>("/transactions", input);
 }
 
+/** CSV import — see pages/CsvImportPage.tsx. All-or-nothing on the backend:
+ * either every row is created, or (on a validation error) none are. */
+export function bulkCreateTransactions(items: TransactionInput[]) {
+  return api.post<{ created: number }>("/transactions/bulk", { items });
+}
+
 export function updateTransaction(id: number, input: Partial<TransactionInput>) {
   return api.patch<Transaction>(`/transactions/${id}`, input);
 }

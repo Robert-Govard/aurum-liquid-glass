@@ -78,3 +78,16 @@ class TransactionPage(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+class TransactionBulkCreate(BaseModel):
+    """CSV import (see routes/transactions.py's /bulk): the frontend parses
+    the file and maps its columns client-side, then sends already-shaped
+    rows here. All-or-nothing — same failure semantics as backup restore, so
+    a single bad row never leaves a partial import behind."""
+
+    items: list[TransactionCreate] = Field(min_length=1, max_length=5000)
+
+
+class TransactionBulkCreateResult(BaseModel):
+    created: int

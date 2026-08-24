@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
-import { Plus, Search, X } from "lucide-react";
+import { Link, useSearchParams } from "react-router-dom";
+import { FileUp, Plus, Search, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input, Select } from "@/components/ui/Input";
@@ -137,10 +137,18 @@ export function TransactionsPage() {
             />
           </div>
         </div>
-        <Button onClick={openCreateModal} className="w-full sm:w-auto">
-          <Plus size={16} />
-          {t("transactions.addButton")}
-        </Button>
+        <div className="flex gap-2">
+          <Link to="/transactions/import" className="flex-1 sm:flex-none">
+            <Button variant="secondary" className="w-full sm:w-auto">
+              <FileUp size={16} />
+              {t("transactions.importButton")}
+            </Button>
+          </Link>
+          <Button onClick={openCreateModal} className="flex-1 sm:w-auto">
+            <Plus size={16} />
+            {t("transactions.addButton")}
+          </Button>
+        </div>
       </div>
 
       <div className="relative">
