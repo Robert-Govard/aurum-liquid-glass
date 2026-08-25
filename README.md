@@ -58,7 +58,7 @@ Aurum treats your financial life as a **system**, not a spreadsheet.
 ## 🧩 Core Features
 
 ### 💰 Cash Flow & Transactions
-Log income, expenses, and transfers across as many accounts as you want, categorized and searchable. A dedicated Cash Flow view charts income vs. expense month by month.
+Log income, expenses, and transfers across as many accounts as you want, organized into categories (with one level of subcategories) plus free-form tags, and searchable. Already have history elsewhere? Import a bank's CSV export in a guided 3-step wizard instead of typing every line by hand. A dedicated Cash Flow view charts income vs. expense month by month.
 
 ### 📈 Net Worth Engine
 A live net worth timeline (30 days to all-time) aggregating cash and every manually tracked asset — investments, crypto, real estate, vehicles, precious metals — into one number, with a full breakdown by asset class, by how each asset behaves (income / neutral / drain), and by risk level.
@@ -73,10 +73,10 @@ Rank every category by total spend over any custom period to find what's actuall
 A standalone ROI calculator: enter what you'd invest and what it would pay you monthly, and see the annual return, payback period, and a compound-interest projection — with a year-by-year comparison chart of compounding vs. just banking the cash — before you commit to a purchase.
 
 ### 🔔 Proactive Alerts
-Aurum watches your numbers in the background and surfaces a warning the moment something crosses a threshold you configure: a sustained negative cash flow streak, a declining net worth trend, an over-budget category, or too much capital sitting at risk.
+Aurum watches your numbers in the background and surfaces a warning the moment something crosses a threshold you configure: a sustained negative cash flow streak, a declining net worth trend, an over-budget category, too much capital sitting at risk, or cash sitting idle in an account for too long.
 
 ### 🌐 Bilingual, Mobile-First
-Full Russian/English UI with a language switch in Settings, and every screen designed mobile-first from day one.
+Full Russian/English UI with a language switch in Settings, a light/dark/system theme toggle, and every screen designed mobile-first from day one.
 
 ### 💾 Full Backup & Restore
 Export your entire dataset — accounts, transactions, assets, budgets, goals — to a single JSON file at any time, and restore it later on a fresh install.
