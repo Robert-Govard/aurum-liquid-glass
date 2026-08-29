@@ -9,7 +9,7 @@ Aurum is a source-available personal finance operating system — a complete, gr
 [![License: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-blue.svg)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-[Features](#-core-features) • [Screenshots](#-screenshots) • [Getting Started](#-getting-started) • [Security](#-security--self-hosting) • [Contributing](#-contributing) • [License](#-license)
+[Features](#-core-features) • [Screenshots](#-screenshots) • [Getting Started](#-getting-started) • [API Docs](DOCS.md) • [Security](#-security--self-hosting) • [Contributing](#-contributing) • [License](#-license)
 
 </div>
 
@@ -158,6 +158,13 @@ docker compose pull && docker compose up -d --build   # update to newer code
 ```
 
 Your data lives in a Docker named volume (`aurum_pgdata`), not in the repo folder — it survives `docker compose down`, image rebuilds, and `git pull`. It's only gone if you explicitly run `docker compose down -v` or delete the volume yourself. For anything short of that, use the in-app **Settings → Backup & Restore** to export a JSON snapshot of everything before making risky changes.
+
+## 🔌 API
+
+Everything Aurum's UI can do — adding transactions, managing accounts and budgets, importing a CSV,
+tracking assets, exporting a backup — is also available as a plain JSON REST API at `/api`, so you
+can script Aurum or connect it to other programs. See **[DOCS.md](DOCS.md)** for the full reference,
+or open `/api/docs` on your running instance for interactive Swagger docs.
 
 ## 🔒 Security & Self-Hosting
 
