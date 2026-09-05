@@ -5,6 +5,7 @@ import { Logo } from "@/components/layout/Logo";
 import { NAV_ITEMS } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/lib/i18n";
+import { glassSurfaceClass } from "@/components/ui/GlassSurface";
 
 interface NavListProps {
   collapsed: boolean;
@@ -89,9 +90,11 @@ export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onCloseMobil
     <>
       {/* Desktop: persistent rail, collapsible between icon-only and full width. */}
       <aside
-        className={cn(
-          "sticky top-0 hidden h-screen shrink-0 flex-col border-r border-border bg-surface-1 transition-[width] duration-150 lg:flex",
-          collapsed ? "w-[72px]" : "w-56"
+        className={glassSurfaceClass(
+          cn(
+            "sticky top-0 hidden h-screen shrink-0 flex-col transition-[width] duration-150 lg:flex",
+            collapsed ? "w-[72px]" : "w-56"
+          )
         )}
       >
         {collapsed ? (
@@ -133,7 +136,7 @@ export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onCloseMobil
       {mobileOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div className="absolute inset-0 bg-black/40" onClick={onCloseMobile} />
-          <aside className="absolute inset-y-0 left-0 flex w-64 flex-col bg-surface-1 shadow-xl">
+          <aside className={glassSurfaceClass("absolute inset-y-0 left-0 flex w-64 flex-col shadow-xl")}>
             <div className="flex items-center justify-between gap-2 px-4 py-4">
               <span className="flex items-center gap-2 text-lg font-semibold tracking-tight text-text-primary">
                 <Logo size={24} /> Aurum
