@@ -16,7 +16,7 @@ const TONE_CLASSES: Record<NonNullable<StatCardProps["tone"]>, string> = {
 
 export function StatCard({ label, value, caption, tone = "default" }: StatCardProps) {
   return (
-    <Card className="p-4 sm:p-5">
+    <Card variant="glass" className="p-4 sm:p-5">
       <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">{label}</p>
       <p className={cn("mt-1.5 text-2xl font-semibold tabular-nums sm:text-[28px]", TONE_CLASSES[tone])}>
         {value}

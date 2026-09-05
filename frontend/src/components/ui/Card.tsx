@@ -1,10 +1,21 @@
 import type { HTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
+import { glassSurfaceClass } from "@/components/ui/GlassSurface";
 
-export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+type CardVariant = "solid" | "glass";
+
+interface CardProps extends HTMLAttributes<HTMLDivElement> {
+  variant?: CardVariant;
+}
+
+export function Card({ className, variant = "solid", ...props }: CardProps) {
   return (
     <div
-      className={cn("min-w-0 rounded-xl border border-border bg-surface-1 shadow-sm", className)}
+      className={
+        variant === "glass"
+          ? glassSurfaceClass(cn("min-w-0 rounded-xl shadow-sm", className))
+          : cn("min-w-0 rounded-xl border border-border bg-surface-1 shadow-sm", className)
+      }
       {...props}
     />
   );
