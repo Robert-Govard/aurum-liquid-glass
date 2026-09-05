@@ -34,7 +34,18 @@ export default function App() {
   }, [settings]);
 
   return (
-    <div className="flex min-h-screen bg-surface-0">
+    <div className="flex min-h-screen">
+      {/* Амбиентная подложка, на которой «преломляется» стеклянный хром
+          (Sidebar/Topbar/Dialog) — на плоском surface-0 полупрозрачные
+          поверхности выглядели бы просто серыми. Fixed + отрицательный
+          z-index: слой позади всего контента приложения, но поверх обычного
+          фона <body> из index.css. Цвета — уже существующие токены (золото
+          логотипа ~= series-4, один акцентный series-1), а не новые
+          хардкод-значения. */}
+      <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+        <div className="absolute -left-24 -top-24 h-96 w-96 rounded-full bg-series-4/10 blur-3xl" />
+        <div className="absolute right-0 top-1/3 h-96 w-96 rounded-full bg-series-1/10 blur-3xl" />
+      </div>
       <Sidebar
         collapsed={collapsed}
         onToggleCollapsed={() => setCollapsed(!collapsed)}
