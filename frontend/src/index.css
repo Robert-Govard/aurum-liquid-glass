@@ -16,6 +16,10 @@
   --text-muted: #898781;
   --border: rgba(11, 11, 11, 0.1);
   --gridline: #e1e0d9;
+  --glass-bg: rgba(252, 252, 251, 0.6);
+  --glass-border: rgba(11, 11, 11, 0.08);
+  --glass-highlight: rgba(255, 255, 255, 0.7);
+  --glass-blur: 16px;
 
   --success: #006300;
   --danger: #c1302a;
@@ -42,6 +46,9 @@
     --text-muted: #898781;
     --border: rgba(255, 255, 255, 0.1);
     --gridline: #2c2c2a;
+    --glass-bg: rgba(26, 26, 25, 0.55);
+    --glass-border: rgba(255, 255, 255, 0.12);
+    --glass-highlight: rgba(255, 255, 255, 0.16);
 
     --success: #0ca30c;
     --danger: #e66767;
@@ -67,6 +74,9 @@
   --text-muted: #898781;
   --border: rgba(255, 255, 255, 0.1);
   --gridline: #2c2c2a;
+  --glass-bg: rgba(26, 26, 25, 0.55);
+  --glass-border: rgba(255, 255, 255, 0.12);
+  --glass-highlight: rgba(255, 255, 255, 0.16);
 
   --success: #0ca30c;
   --danger: #e66767;
@@ -90,6 +100,9 @@
   --color-text-muted: var(--text-muted);
   --color-border: var(--border);
   --color-gridline: var(--gridline);
+  --color-glass-bg: var(--glass-bg);
+  --color-glass-border: var(--glass-border);
+  --color-glass-highlight: var(--glass-highlight);
   --color-success: var(--success);
   --color-danger: var(--danger);
 
