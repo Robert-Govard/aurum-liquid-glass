@@ -2,6 +2,7 @@ import { useLocation } from "react-router-dom";
 import { Menu } from "lucide-react";
 import { NAV_ITEMS } from "@/lib/navigation";
 import { useTranslation } from "@/lib/i18n";
+import { glassSurfaceClass } from "@/components/ui/GlassSurface";
 
 interface TopbarProps {
   onOpenMobileNav: () => void;
@@ -13,7 +14,7 @@ export function Topbar({ onOpenMobileNav }: TopbarProps) {
   const activeItem = NAV_ITEMS.find((item) => (item.to === "/" ? location.pathname === "/" : location.pathname.startsWith(item.to)));
 
   return (
-    <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-border bg-surface-0/95 px-4 py-3.5 backdrop-blur sm:px-6 lg:px-8">
+    <header className={glassSurfaceClass("sticky top-0 z-30 flex items-center gap-3 px-4 py-3.5 sm:px-6 lg:px-8")}>
       <button
         type="button"
         onClick={onOpenMobileNav}
