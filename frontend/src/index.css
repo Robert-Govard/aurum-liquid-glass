@@ -16,7 +16,10 @@
   --text-muted: #898781;
   --border: rgba(11, 11, 11, 0.1);
   --gridline: #e1e0d9;
-  --glass-bg: rgba(252, 252, 251, 0.6);
+  /* 0.6 читалось как обычная непрозрачная поверхность — почти не давало
+     подложке (App.tsx) просвечивать сквозь Sidebar/Topbar/Card/Dialog.
+     Снижено после визуальной проверки. */
+  --glass-bg: rgba(252, 252, 251, 0.45);
   --glass-border: rgba(11, 11, 11, 0.08);
   --glass-highlight: rgba(255, 255, 255, 0.7);
   --glass-blur: 16px;
@@ -46,7 +49,8 @@
     --text-muted: #898781;
     --border: rgba(255, 255, 255, 0.1);
     --gridline: #2c2c2a;
-    --glass-bg: rgba(26, 26, 25, 0.55);
+    /* См. комментарий у светлого --glass-bg в :root — то же снижение. */
+    --glass-bg: rgba(26, 26, 25, 0.4);
     --glass-border: rgba(255, 255, 255, 0.12);
     --glass-highlight: rgba(255, 255, 255, 0.16);
 
@@ -74,7 +78,8 @@
   --text-muted: #898781;
   --border: rgba(255, 255, 255, 0.1);
   --gridline: #2c2c2a;
-  --glass-bg: rgba(26, 26, 25, 0.55);
+  /* См. комментарий у светлого --glass-bg в :root — то же снижение. */
+  --glass-bg: rgba(26, 26, 25, 0.4);
   --glass-border: rgba(255, 255, 255, 0.12);
   --glass-highlight: rgba(255, 255, 255, 0.16);
 

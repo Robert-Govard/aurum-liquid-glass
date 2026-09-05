@@ -41,10 +41,17 @@ export default function App() {
           z-index: слой позади всего контента приложения, но поверх обычного
           фона <body> из index.css. Цвета — уже существующие токены (золото
           логотипа ~= series-4, один акцентный series-1), а не новые
-          хардкод-значения. */}
+          хардкод-значения. Три пятна, а не одно: Sidebar тянется на всю
+          высоту экрана, а Topbar — на всю ширину, так что нужен цвет и
+          сверху, и снизу, и справа — иначе блюрить там нечего и стекло не
+          видно почти нигде (обнаружено при визуальной проверке). blur-2xl
+          вместо blur-3xl и более высокая непрозрачность — иначе цвет
+          растворяется до полной незаметности ещё до того, как дойдёт до
+          самих панелей. */}
       <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-        <div className="absolute -left-24 -top-24 h-96 w-96 rounded-full bg-series-4/10 blur-3xl" />
-        <div className="absolute right-0 top-1/3 h-96 w-96 rounded-full bg-series-1/10 blur-3xl" />
+        <div className="absolute -left-32 -top-32 h-[28rem] w-[28rem] rounded-full bg-series-4/16 blur-2xl" />
+        <div className="absolute -top-32 right-0 h-[28rem] w-[28rem] rounded-full bg-series-1/16 blur-2xl" />
+        <div className="absolute -bottom-32 -left-32 h-[28rem] w-[28rem] rounded-full bg-series-1/14 blur-2xl" />
       </div>
       <Sidebar
         collapsed={collapsed}
