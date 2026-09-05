@@ -5,11 +5,11 @@ type Variant = "primary" | "secondary" | "ghost" | "danger";
 
 const VARIANT_CLASSES: Record<Variant, string> = {
   primary: "bg-text-primary text-surface-1 hover:opacity-90",
-  // Лёгкий вариант Liquid Glass: без рамки и верхнего блика (это не
-  // отдельная панель, а просто hover-состояние кнопки на чужом фоне) —
-  // только полупрозрачность + блюр из тех же токенов --glass-*.
-  secondary: "bg-surface-2 text-text-primary hover:bg-glass-bg hover:backdrop-blur-[var(--glass-blur)]",
-  ghost: "bg-transparent text-text-secondary hover:bg-glass-bg hover:backdrop-blur-[var(--glass-blur)]",
+  // Лёгкий вариант Liquid Glass: видимая заливка при hover (как и раньше)
+  // плюс блюр из токенов --glass-* поверх неё — сам --glass-bg слишком
+  // прозрачен, чтобы быть заметным сам по себе (найдено финальным ревью).
+  secondary: "bg-surface-2 text-text-primary hover:bg-surface-2/70 hover:backdrop-blur-[var(--glass-blur)]",
+  ghost: "bg-transparent text-text-secondary hover:bg-surface-2 hover:backdrop-blur-[var(--glass-blur)]",
   danger: "bg-danger text-white hover:opacity-90",
 };
 

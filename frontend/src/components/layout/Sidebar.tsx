@@ -92,7 +92,7 @@ export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onCloseMobil
       <aside
         className={glassSurfaceClass(
           cn(
-            "sticky top-0 hidden h-screen shrink-0 flex-col transition-[width] duration-150 lg:flex",
+            "sticky top-0 hidden h-screen shrink-0 flex-col border-r border-glass-border transition-[width] duration-150 lg:flex",
             collapsed ? "w-[72px]" : "w-56"
           )
         )}

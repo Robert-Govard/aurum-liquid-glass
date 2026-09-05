@@ -14,7 +14,7 @@ export function Topbar({ onOpenMobileNav }: TopbarProps) {
   const activeItem = NAV_ITEMS.find((item) => (item.to === "/" ? location.pathname === "/" : location.pathname.startsWith(item.to)));
 
   return (
-    <header className={glassSurfaceClass("sticky top-0 z-30 flex items-center gap-3 px-4 py-3.5 sm:px-6 lg:px-8")}>
+    <header className={glassSurfaceClass("sticky top-0 z-30 flex items-center gap-3 border-b border-glass-border px-4 py-3.5 sm:px-6 lg:px-8")}>
       <button
         type="button"
         onClick={onOpenMobileNav}
