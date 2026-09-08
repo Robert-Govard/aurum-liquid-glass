@@ -5,9 +5,11 @@ from app.models.category import Category
 from app.models.crypto import CryptoHolding, CryptoPortfolio, CryptoSyncState, CryptoTransaction
 from app.models.goal import Goal, GoalContribution
 from app.models.recurring import RecurringTransaction
+from app.models.refresh_token import RefreshToken
 from app.models.settings import AppSettings
 from app.models.tag import Tag
 from app.models.transaction import Transaction, TransactionSplit
+from app.models.user import User
 
 __all__ = [
     "Account",
@@ -23,7 +25,9 @@ __all__ = [
     "Goal",
     "GoalContribution",
     "RecurringTransaction",
+    "RefreshToken",
     "Tag",
     "Transaction",
     "TransactionSplit",
+    "User",
 ]
