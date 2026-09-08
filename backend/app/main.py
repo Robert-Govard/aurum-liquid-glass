@@ -31,8 +31,29 @@ from app.db.session import AsyncSessionLocal
 settings = get_settings()
 
 
+def _check_jwt_secret_is_configured() -> None:
+    """Fail fast if AURUM_JWT_SECRET was left at its placeholder default.
+
+    This is categorically different from the frontend's "Basic Auth unset is
+    fine for localhost" tolerance (see docker-compose.yml): an unset Basic
+    Auth password means *no* auth, but a JWT secret left at the placeholder
+    means auth *exists but is worthless* — the signing key is public in this
+    open-source repository, so every access/refresh token the app would ever
+    issue is forgeable by anyone who has read the source. Refusing to start
+    (rather than just logging a warning) is the only way to guarantee this
+    never quietly ships to a real deployment.
+    """
+    if get_settings().jwt_secret == "change-me-in-production":
+        raise RuntimeError(
+            "AURUM_JWT_SECRET is still the placeholder default — set it to a "
+            "real random value (e.g. `openssl rand -hex 32`) before starting. "
+            "Every login token is forgeable until you do."
+        )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    _check_jwt_secret_is_configured()
     async with AsyncSessionLocal() as session:
         await seed_default_categories(session)
         await seed_default_account(session)
