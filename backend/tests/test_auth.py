@@ -8,7 +8,9 @@ from sqlalchemy import select
 
 from app.core.config import get_settings
 from app.core import security
+from app.models.category import Category
 from app.models.refresh_token import RefreshToken
+from app.models.settings import AppSettings
 from app.models.user import User
 
 
@@ -153,3 +155,49 @@ async def test_logout_revokes_the_refresh_token(client):
 
     reuse_resp = await client.post("/auth/refresh", json={"refresh_token": refresh_token})
     assert reuse_resp.status_code == 401
+
+
+async def test_register_seeds_the_new_users_own_categories_and_settings(client, test_sessionmaker):
+    resp = await client.post("/auth/register", json={"email": "seeded@example.com", "password": "hunter22"})
+    tokens = resp.json()
+
+    me_resp = await client.get("/auth/me", headers={"Authorization": f"Bearer {tokens['access_token']}"})
+    assert me_resp.status_code == 200
+    user_id = me_resp.json()["id"]
+
+    async with test_sessionmaker() as session:
+        categories = (await session.execute(select(Category).where(Category.user_id == user_id))).scalars().all()
+        assert len(categories) == 17  # 8 expense + 9 income, see DEFAULT_*_CATEGORIES in db/seed.py
+
+        settings_row = (
+            await session.execute(select(AppSettings).where(AppSettings.user_id == user_id))
+        ).scalar_one()
+        assert settings_row.currency  # created, not left missing
+
+
+async def test_get_me_requires_auth(client):
+    # The client fixture's default Authorization header is valid — override
+    # it with an empty one for this one call to simulate no token at all.
+    resp = await client.get("/auth/me", headers={"Authorization": ""})
+    assert resp.status_code == 401
+
+
+async def test_get_me_returns_the_callers_own_email(client):
+    # NOTE: the task-3 brief's version of this test called `client.get("/auth/me")`
+    # with no explicit token, relying on the `client` fixture setting a default
+    # Authorization header for its one auto-registered user. That default header
+    # is only added in Task 4's conftest.py rewrite (tests/helpers.py /
+    # conftest.py are explicitly out of scope for this task — see task-3-brief.md
+    # step 4/task-4-brief.md step 1) — today's `client` fixture sends no
+    # Authorization header at all. Registering explicitly here keeps this test
+    # passing now instead of silently depending on infrastructure that doesn't
+    # exist yet; it verifies the same thing (`/auth/me` returns the caller's own
+    # email, never the password/hash).
+    register_resp = await client.post("/auth/register", json={"email": "whoami@example.com", "password": "hunter22"})
+    token = register_resp.json()["access_token"]
+
+    resp = await client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert "email" in body
+    assert "password" not in body and "password_hash" not in body

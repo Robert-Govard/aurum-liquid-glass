@@ -15,6 +15,7 @@ from app.core.security import (
     hash_token,
     verify_password,
 )
+from app.db.seed import seed_default_app_settings, seed_default_categories
 from app.models.refresh_token import RefreshToken
 from app.models.user import User
 from app.schemas.auth import RegisterRequest, TokenPair
@@ -36,6 +37,10 @@ async def register(session: AsyncSession, payload: RegisterRequest) -> TokenPair
     user = User(email=payload.email, password_hash=hash_password(payload.password))
     session.add(user)
     await session.flush()  # assigns user.id without ending the transaction
+
+    await seed_default_categories(session, user.id)
+    await seed_default_app_settings(session, user.id)
+
     return await _issue_token_pair(session, user.id)
 
 

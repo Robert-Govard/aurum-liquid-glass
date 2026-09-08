@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_session
+from app.api.deps import get_current_user, get_session
+from app.models.user import User
 from app.schemas.auth import LoginRequest, RefreshRequest, RegisterRequest, TokenPair
+from app.schemas.user import UserRead
 from app.services.auth_service import login, logout, refresh, register
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -26,3 +28,8 @@ async def refresh_route(payload: RefreshRequest, session: AsyncSession = Depends
 @router.post("/logout", status_code=204)
 async def logout_route(payload: RefreshRequest, session: AsyncSession = Depends(get_session)) -> None:
     await logout(session, payload.refresh_token)
+
+
+@router.get("/me", response_model=UserRead)
+async def read_current_user(current_user: User = Depends(get_current_user)) -> User:
+    return current_user

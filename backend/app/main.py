@@ -25,8 +25,6 @@ from app.api.routes import (
     transactions,
 )
 from app.core.config import APP_VERSION, get_settings
-from app.db.seed import seed_default_account, seed_default_app_settings, seed_default_categories
-from app.db.session import AsyncSessionLocal
 
 settings = get_settings()
 
@@ -54,10 +52,6 @@ def _check_jwt_secret_is_configured() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     _check_jwt_secret_is_configured()
-    async with AsyncSessionLocal() as session:
-        await seed_default_categories(session)
-        await seed_default_account(session)
-        await seed_default_app_settings(session)
     yield
 
 

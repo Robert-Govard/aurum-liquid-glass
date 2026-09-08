@@ -1,17 +1,17 @@
-"""Seeds the default category set on first boot.
+"""Seeds a new user's default category set and settings row at
+registration time (see services/auth_service.py:register). Each user gets
+their own copy — these are no longer instance-wide singletons.
 
 The expense categories are assigned hues from the dataviz skill's validated
 8-slot categorical palette, in the palette's fixed slot order (never
 reordered/cycled) so the dashboard donut chart is colorblind-safe out of the
 box. See CLAUDE.md-adjacent design notes in UPDATES.md for the source.
 """
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.models.account import Account
 from app.models.category import Category
-from app.models.enums import AccountType, CategoryKind
+from app.models.enums import CategoryKind
 from app.models.settings import AppSettings
 
 # (name, icon, color) — order doubles as sort_order / palette slot index.
@@ -39,58 +39,41 @@ DEFAULT_INCOME_CATEGORIES = [
 ]
 
 
-async def seed_default_categories(session: AsyncSession) -> None:
-    existing = await session.execute(select(Category.id).limit(1))
-    if existing.first() is not None:
-        return
-
+async def seed_default_categories(session: AsyncSession, user_id: int) -> None:
+    """Creates this user's default category set. Called once, at
+    registration (services/auth_service.py:register) — never checks for
+    existing rows first, since a brand-new user has none."""
     order = 0
     for name, icon, color in DEFAULT_EXPENSE_CATEGORIES:
         session.add(
-            Category(name=name, kind=CategoryKind.EXPENSE, icon=icon, color=color, sort_order=order, is_default=True)
+            Category(
+                user_id=user_id,
+                name=name,
+                kind=CategoryKind.EXPENSE,
+                icon=icon,
+                color=color,
+                sort_order=order,
+                is_default=True,
+            )
         )
         order += 1
     for name, icon, color in DEFAULT_INCOME_CATEGORIES:
         session.add(
-            Category(name=name, kind=CategoryKind.INCOME, icon=icon, color=color, sort_order=order, is_default=True)
+            Category(
+                user_id=user_id,
+                name=name,
+                kind=CategoryKind.INCOME,
+                icon=icon,
+                color=color,
+                sort_order=order,
+                is_default=True,
+            )
         )
         order += 1
 
-    await session.commit()
 
-
-async def seed_default_account(session: AsyncSession) -> None:
-    """Creates one starter account so the Transactions form always has a
-    destination to post to, even before the (future) accounts management UI
-    ships."""
-    existing = await session.execute(select(Account.id).limit(1))
-    if existing.first() is not None:
-        return
-
-    session.add(
-        Account(
-            name="Main Account",
-            type=AccountType.CHECKING,
-            currency=get_settings().default_currency,
-            color="#2a78d6",
-        )
-    )
-    await session.commit()
-
-
-async def seed_default_app_settings(session: AsyncSession) -> None:
-    """Ensures the singleton app_settings row (id=1) exists, seeded with
-    AURUM_DEFAULT_CURRENCY. The sole place that row gets created — the
-    9f3a2d7c5e11 migration only creates the table now, not the row itself
-    (an earlier version hardcoded the row to 'USD' at migration time, which
-    silently ignored AURUM_DEFAULT_CURRENCY on a fresh install since this
-    function's own get-or-create check would find the row already there).
-    Runs on every app boot (see main.py's lifespan), so it's also
-    self-healing if the row is ever missing (e.g. a DB restored from a
-    pre-currency-setting backup)."""
-    existing = await session.get(AppSettings, 1)
-    if existing is not None:
-        return
-
-    session.add(AppSettings(id=1, currency=get_settings().default_currency))
-    await session.commit()
+async def seed_default_app_settings(session: AsyncSession, user_id: int) -> None:
+    """Creates this user's settings row, seeded with AURUM_DEFAULT_CURRENCY.
+    Called once, at registration — never checks for an existing row first,
+    since a brand-new user has none."""
+    session.add(AppSettings(user_id=user_id, currency=get_settings().default_currency))
