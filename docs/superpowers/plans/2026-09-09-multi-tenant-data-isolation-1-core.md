@@ -685,8 +685,20 @@ Expected: PASS — all tests in the file, including the two new ones.
 - [ ] **Step 7: Run the full suite**
 
 Run: `docker compose exec backend pytest -v`
-Expected: some pre-existing tests will now FAIL — specifically
-`test_app_settings_seed.py` (tests the old singleton `seed_default_app_settings(session)` with no `user_id` argument, which no longer exists) and possibly others relying on instance-wide seeding at boot. This is expected and is fixed in Task 4 (test infrastructure rewrite), not this task — do not attempt to fix `test_app_settings_seed.py` here. Confirm the failures are limited to boot-time-seeding-related tests and report the exact failing test names in your report.
+Expected: **the whole run fails at collection**, not just a handful of
+test failures — `tests/conftest.py` still imports `seed_default_account,
+seed_default_app_settings, seed_default_categories` from `app.db.seed`
+with their old signatures/names, and `seed_default_account` no longer
+exists at all after Step 3's rewrite. Pytest reports this as an
+`ImportError`/`ERROR` during collection (visible near the top of the
+output, something like `ERRORS` / `ImportError: cannot import name
+'seed_default_account'`), and no individual test in the suite actually
+runs. **This is the expected, correct state to leave the codebase in at
+the end of this task** — Task 4 (test infrastructure rewrite) is what
+fixes `conftest.py` to match. Do not attempt to fix `conftest.py` here,
+and do not treat this collection error as something you need to resolve
+before committing. Paste the collection error into your report so the
+next task's context is clear, then proceed to Step 8.
 
 - [ ] **Step 8: Commit**
 
