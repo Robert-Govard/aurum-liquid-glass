@@ -66,3 +66,69 @@ def test_access_token_rejected_by_decode_refresh_token():
     access = security.create_access_token(user_id=1)
     with pytest.raises(pyjwt.PyJWTError):
         security.decode_refresh_token(access)
+
+
+async def test_register_returns_token_pair(client):
+    resp = await client.post("/auth/register", json={"email": "a@example.com", "password": "hunter22"})
+    assert resp.status_code == 201
+    body = resp.json()
+    assert body["token_type"] == "bearer"
+    assert body["access_token"] and body["refresh_token"]
+
+
+async def test_register_rejects_duplicate_email(client):
+    await client.post("/auth/register", json={"email": "dup@example.com", "password": "hunter22"})
+    resp = await client.post("/auth/register", json={"email": "dup@example.com", "password": "different1"})
+    assert resp.status_code == 409
+
+
+async def test_login_with_correct_password(client):
+    await client.post("/auth/register", json={"email": "b@example.com", "password": "hunter22"})
+    resp = await client.post("/auth/login", json={"email": "b@example.com", "password": "hunter22"})
+    assert resp.status_code == 200
+    assert resp.json()["access_token"]
+
+
+async def test_login_with_wrong_password(client):
+    await client.post("/auth/register", json={"email": "c@example.com", "password": "hunter22"})
+    resp = await client.post("/auth/login", json={"email": "c@example.com", "password": "wrong-password"})
+    assert resp.status_code == 401
+
+
+async def test_login_with_unknown_email(client):
+    resp = await client.post("/auth/login", json={"email": "nobody@example.com", "password": "whatever1"})
+    assert resp.status_code == 401
+
+
+async def test_refresh_issues_new_pair_and_rotates(client):
+    register_resp = await client.post("/auth/register", json={"email": "d@example.com", "password": "hunter22"})
+    old_refresh = register_resp.json()["refresh_token"]
+
+    refresh_resp = await client.post("/auth/refresh", json={"refresh_token": old_refresh})
+    assert refresh_resp.status_code == 200
+    new_refresh = refresh_resp.json()["refresh_token"]
+    assert new_refresh != old_refresh
+
+    # the rotated-out token must no longer work
+    reuse_resp = await client.post("/auth/refresh", json={"refresh_token": old_refresh})
+    assert reuse_resp.status_code == 401
+
+    # the new one does
+    second_refresh_resp = await client.post("/auth/refresh", json={"refresh_token": new_refresh})
+    assert second_refresh_resp.status_code == 200
+
+
+async def test_refresh_rejects_garbage_token(client):
+    resp = await client.post("/auth/refresh", json={"refresh_token": "not-a-real-token"})
+    assert resp.status_code == 401
+
+
+async def test_logout_revokes_the_refresh_token(client):
+    register_resp = await client.post("/auth/register", json={"email": "e@example.com", "password": "hunter22"})
+    refresh_token = register_resp.json()["refresh_token"]
+
+    logout_resp = await client.post("/auth/logout", json={"refresh_token": refresh_token})
+    assert logout_resp.status_code == 204
+
+    reuse_resp = await client.post("/auth/refresh", json={"refresh_token": refresh_token})
+    assert reuse_resp.status_code == 401
