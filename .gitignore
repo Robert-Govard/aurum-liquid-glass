@@ -52,3 +52,5 @@ pgdata/
 # Other
 UPDATES.md
 temp/
+# Local worktrees (superpowers subagent-driven-development)
+.worktrees/
