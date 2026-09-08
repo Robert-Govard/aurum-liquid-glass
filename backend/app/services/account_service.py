@@ -7,7 +7,6 @@ net_worth_service.py uses for Cash.
 from collections import defaultdict
 from decimal import Decimal
 
-from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,6 +14,7 @@ from app.models.account import Account
 from app.models.enums import TransactionType
 from app.models.transaction import Transaction
 from app.schemas.account import AccountCreate, AccountUpdate, AccountWithBalance
+from app.services.scoped import get_owned_or_404, scoped
 
 
 async def _account_balances(session: AsyncSession) -> dict[int, Decimal]:
@@ -46,8 +46,8 @@ def _to_read(account: Account, balance: Decimal) -> AccountWithBalance:
     )
 
 
-async def list_accounts(session: AsyncSession, include_archived: bool) -> list[AccountWithBalance]:
-    stmt = select(Account).order_by(Account.name)
+async def list_accounts(session: AsyncSession, include_archived: bool, user_id: int) -> list[AccountWithBalance]:
+    stmt = scoped(select(Account), Account, user_id).order_by(Account.name)
     if not include_archived:
         stmt = stmt.where(Account.is_archived.is_(False))
     accounts = (await session.execute(stmt)).scalars().all()
@@ -55,8 +55,8 @@ async def list_accounts(session: AsyncSession, include_archived: bool) -> list[A
     return [_to_read(account, balances.get(account.id, Decimal("0"))) for account in accounts]
 
 
-async def create_account(session: AsyncSession, payload: AccountCreate) -> AccountWithBalance:
-    account = Account(**payload.model_dump())
+async def create_account(session: AsyncSession, payload: AccountCreate, user_id: int) -> AccountWithBalance:
+    account = Account(**payload.model_dump(), user_id=user_id)
     session.add(account)
     await session.commit()
     await session.refresh(account)
@@ -64,10 +64,10 @@ async def create_account(session: AsyncSession, payload: AccountCreate) -> Accou
     return _to_read(account, Decimal("0"))
 
 
-async def update_account(session: AsyncSession, account_id: int, payload: AccountUpdate) -> AccountWithBalance:
-    account = await session.get(Account, account_id)
-    if account is None:
-        raise HTTPException(status_code=404, detail="Account not found")
+async def update_account(
+    session: AsyncSession, account_id: int, payload: AccountUpdate, user_id: int
+) -> AccountWithBalance:
+    account = await get_owned_or_404(session, Account, account_id, user_id, detail="Account not found")
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(account, field, value)
     await session.commit()
@@ -76,9 +76,7 @@ async def update_account(session: AsyncSession, account_id: int, payload: Accoun
     return _to_read(account, balances.get(account.id, Decimal("0")))
 
 
-async def delete_account(session: AsyncSession, account_id: int) -> None:
-    account = await session.get(Account, account_id)
-    if account is None:
-        raise HTTPException(status_code=404, detail="Account not found")
+async def delete_account(session: AsyncSession, account_id: int, user_id: int) -> None:
+    account = await get_owned_or_404(session, Account, account_id, user_id, detail="Account not found")
     await session.delete(account)
     await session.commit()
