@@ -5,6 +5,7 @@ never while it still has transactions.
 """
 from httpx import AsyncClient
 
+from tests.helpers import auth_headers, register_user
 from tests.helpers import txn_payload as _txn
 
 
@@ -134,3 +135,65 @@ async def test_default_category_becomes_deletable_once_its_transaction_is_remove
 
     resp = await client.delete(f"/categories/{groceries}")
     assert resp.status_code == 204
+
+
+async def test_user_a_cannot_see_user_bs_custom_category(client):
+    b_tokens = await register_user(client, "catb@example.com")
+    b_category = (
+        await client.post(
+            "/categories",
+            json={"name": "B's Category", "kind": "expense", "color": "#e34948"},
+            headers=auth_headers(b_tokens["access_token"]),
+        )
+    ).json()
+
+    a_categories = (await client.get("/categories")).json()
+    assert all(c["id"] != b_category["id"] for c in a_categories)
+
+
+async def test_user_a_cannot_update_user_bs_category(client):
+    b_tokens = await register_user(client, "catb2@example.com")
+    b_category = (
+        await client.post(
+            "/categories",
+            json={"name": "B's Category", "kind": "expense", "color": "#e34948"},
+            headers=auth_headers(b_tokens["access_token"]),
+        )
+    ).json()
+
+    resp = await client.patch(f"/categories/{b_category['id']}", json={"name": "Hijacked"})
+    assert resp.status_code == 404
+
+
+async def test_user_a_cannot_delete_user_bs_category(client):
+    b_tokens = await register_user(client, "catb3@example.com")
+    b_category = (
+        await client.post(
+            "/categories",
+            json={"name": "B's Category", "kind": "expense", "color": "#e34948"},
+            headers=auth_headers(b_tokens["access_token"]),
+        )
+    ).json()
+
+    resp = await client.delete(f"/categories/{b_category['id']}")
+    assert resp.status_code == 404
+
+
+async def test_user_a_cannot_nest_under_user_bs_category(client):
+    """A's new subcategory must not be allowed to point parent_id at a
+    category A doesn't own — that would leak the fact that the id exists
+    (or worse, actually attach to it) if _validate_parent used a bare
+    session.get instead of an owner-scoped lookup."""
+    b_tokens = await register_user(client, "catb4@example.com")
+    b_category = (
+        await client.post(
+            "/categories",
+            json={"name": "B's Category", "kind": "expense", "color": "#e34948"},
+            headers=auth_headers(b_tokens["access_token"]),
+        )
+    ).json()
+
+    resp = await client.post(
+        "/categories", json={"name": "Sneaky", "kind": "expense", "color": "#e34948", "parent_id": b_category["id"]}
+    )
+    assert resp.status_code == 400
