@@ -35,6 +35,13 @@ class Settings(BaseSettings):
     # rather than silently hitting CoinGecko's much stingier keyless tier.
     coingecko_api_key: str = ""
 
+    # Signing key for access/refresh JWTs (see core/security.py). The
+    # placeholder default only works because every token it would ever sign
+    # is worthless without a real deployment behind it — set a real random
+    # value (e.g. `openssl rand -hex 32`) before exposing this instance to
+    # anyone.
+    jwt_secret: str = "change-me-in-production"
+
     @property
     def database_url(self) -> str:
         return (
