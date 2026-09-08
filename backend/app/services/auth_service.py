@@ -63,6 +63,16 @@ async def refresh(session: AsyncSession, raw_token: str) -> TokenPair:
     # a live child pair — defeating rotation. Only one concurrent caller can
     # match revoked_at.is_(None) here; the other gets rowcount == 0. Same
     # pattern as logout() below.
+    #
+    # The `user_id.in_(active_user_ids)` clause folds in the "owning user is
+    # still active" check without a separate SELECT: a disabled user's
+    # refresh token must stop working immediately (see user_service's
+    # update_user, which also revokes outstanding tokens the moment a user
+    # is disabled — this is the lazy backstop for any token issued in the
+    # narrow window around that), and doing it as a subquery inside the same
+    # UPDATE keeps everything above atomic instead of reintroducing a
+    # load-then-check race.
+    active_user_ids = select(User.id).where(User.id == user_id, User.is_active.is_(True))
     result = await session.execute(
         update(RefreshToken)
         .where(
@@ -70,6 +80,7 @@ async def refresh(session: AsyncSession, raw_token: str) -> TokenPair:
             RefreshToken.user_id == user_id,
             RefreshToken.revoked_at.is_(None),
             RefreshToken.expires_at >= now,
+            RefreshToken.user_id.in_(active_user_ids),
         )
         .values(revoked_at=now)
     )

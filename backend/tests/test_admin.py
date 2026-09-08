@@ -59,6 +59,7 @@ async def test_admin_can_disable_a_user(client, test_sessionmaker):
 
     # the disabled user's existing refresh token stops working
     refresh_resp = await client.post("/auth/refresh", json={"refresh_token": target_tokens["refresh_token"]})
+    assert refresh_resp.status_code == 401
     login_resp = await client.post("/auth/login", json={"email": "target@example.com", "password": "hunter22"})
     assert login_resp.status_code == 401
 
