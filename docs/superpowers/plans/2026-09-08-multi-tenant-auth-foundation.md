@@ -1307,7 +1307,12 @@ git commit -m "Добавить админку: список/блокировк�
 ## Task 10: Update UPDATES.md
 
 **Files:**
-- Create or modify: `UPDATES.md` (repo root)
+- Create or modify: `UPDATES.md` (repo root) — **gitignored by design**
+  (see the root `.gitignore`'s `# Other` section): this file is the
+  project owner's personal local changelog, never pushed to the remote
+  repository. Do not `git add` or `git commit` it — doing so would fight
+  the `.gitignore` entry that deliberately keeps it out of version
+  control.
 
 **Interfaces:** none (documentation only).
 
@@ -1332,12 +1337,11 @@ e.g.:
   пользователям — это следующий этап.
 ```
 
-- [ ] **Step 2: Commit**
+- [ ] **Step 2: Do not commit this file**
 
-```bash
-git add UPDATES.md
-git commit -m "Обновить UPDATES.md: основа мультитенантной аутентификации"
-```
+This task has no commit step. `UPDATES.md` stays on disk, untracked —
+confirm with `git status` that it shows under untracked/ignored files, not
+staged.
 
 ---
 
