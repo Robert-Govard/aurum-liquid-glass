@@ -24,7 +24,6 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from app.api.deps import get_session
 from app.core.config import get_settings
 from app.db.base import Base
-from app.db.seed import seed_default_account, seed_default_app_settings, seed_default_categories
 from app.main import app
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
@@ -93,16 +92,14 @@ async def test_sessionmaker(_test_database) -> AsyncGenerator[async_sessionmaker
 
 @pytest_asyncio.fixture(autouse=True)
 async def _clean_database(test_sessionmaker):
-    """Wipe every table and reseed the default categories/account/app
-    settings before each test, so tests never see leftovers from a previous
-    one and never have to guess at auto-incremented IDs from prior runs."""
+    """Wipe every table before each test — no instance-wide seeding
+    happens anymore; each test's `client` fixture registers its own user,
+    whose categories/settings are seeded by that registration call, same
+    as a real signup."""
     async with test_sessionmaker() as session:
         for table in reversed(Base.metadata.sorted_tables):
             await session.execute(text(f'TRUNCATE TABLE "{table.name}" RESTART IDENTITY CASCADE'))
         await session.commit()
-        await seed_default_categories(session)
-        await seed_default_account(session)
-        await seed_default_app_settings(session)
     yield
 
 
@@ -115,19 +112,21 @@ async def client(test_sessionmaker) -> AsyncGenerator[AsyncClient, None]:
     app.dependency_overrides[get_session] = override_get_session
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test/api") as ac:
+        register_resp = await ac.post("/auth/register", json={"email": "test@example.com", "password": "hunter22"})
+        token = register_resp.json()["access_token"]
+        ac.headers["Authorization"] = f"Bearer {token}"
         yield ac
     app.dependency_overrides.clear()
 
 
 @pytest_asyncio.fixture
 async def account_id(client: AsyncClient) -> int:
-    """The default seeded account (see app/db/seed.py) — every transaction
-    needs one, and the app itself always seeds exactly this one on first
-    boot, so tests build on the same shape real usage does."""
-    resp = await client.get("/accounts")
-    accounts = resp.json()
-    assert accounts, "seed_default_account should have created exactly one account"
-    return accounts[0]["id"]
+    """Creates one account for the test's default user (see the `client`
+    fixture) — every transaction needs one, and there's no more
+    auto-seeded account (registration only seeds categories/settings)."""
+    resp = await client.post("/accounts", json={"name": "Main Account", "type": "checking", "currency": "USD"})
+    assert resp.status_code == 201, resp.text
+    return resp.json()["id"]
 
 
 @pytest_asyncio.fixture

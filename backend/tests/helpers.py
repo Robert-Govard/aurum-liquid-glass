@@ -20,3 +20,19 @@ def txn_payload(account_id: int, **overrides) -> dict:
     }
     payload.update(overrides)
     return payload
+
+
+async def register_user(client, email: str, password: str = "hunter22") -> dict:
+    """Registers a second user for an isolation test (the `client` fixture
+    already auto-registers and authenticates as one default user — use
+    this to bring in another one and compare what each can/can't see).
+    Returns the /auth/register response body (access_token, refresh_token,
+    token_type)."""
+    resp = await client.post("/auth/register", json={"email": email, "password": password})
+    return resp.json()
+
+
+def auth_headers(token: str) -> dict:
+    """Pass as `headers=auth_headers(token)` on one httpx call to act as a
+    different user than the client fixture's default, for that call only."""
+    return {"Authorization": f"Bearer {token}"}

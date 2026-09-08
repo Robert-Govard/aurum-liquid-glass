@@ -26,6 +26,10 @@ async def test_non_admin_gets_403(client):
 
 
 async def test_missing_token_gets_401(client):
+    # The `client` fixture now auto-authenticates as its own default test
+    # user (see conftest.py), so a genuinely tokenless request has to drop
+    # that default Authorization header for this one call.
+    del client.headers["Authorization"]
     resp = await client.get("/admin/users")
     assert resp.status_code == 401
 
@@ -38,7 +42,11 @@ async def test_admin_can_list_users(client, test_sessionmaker):
     resp = await client.get("/admin/users", headers=_auth(admin_tokens["access_token"]))
     assert resp.status_code == 200
     emails = {u["email"] for u in resp.json()}
-    assert emails == {"admin@example.com", "other@example.com"}
+    # The `client` fixture auto-registers its own default user
+    # ("test@example.com") before this test runs any of its own
+    # registrations, so it shows up here too — assert the two users this
+    # test actually cares about are present rather than pinning the total.
+    assert {"admin@example.com", "other@example.com"} <= emails
     # never leaks the hash
     assert all("password" not in u for u in resp.json())
 
