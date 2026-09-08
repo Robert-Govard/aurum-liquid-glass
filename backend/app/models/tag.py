@@ -4,7 +4,7 @@ event/project does it belong to" (e.g. "trip:georgia", "tax-deductible").
 A transaction can carry any number of tags, a tag can be reused across any
 number of transactions — see transaction_tags below.
 """
-from sqlalchemy import Column, ForeignKey, String, Table
+from sqlalchemy import Column, ForeignKey, String, Table, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -19,8 +19,10 @@ transaction_tags = Table(
 
 class Tag(Base):
     __tablename__ = "tags"
+    __table_args__ = (UniqueConstraint("user_id", "name", name="uq_tags_user_id_name"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String(50), nullable=False, unique=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
+    name: Mapped[str] = mapped_column(String(50), nullable=False)
 
     transactions: Mapped[list["Transaction"]] = relationship(secondary=transaction_tags, back_populates="tags")

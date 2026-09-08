@@ -43,6 +43,7 @@ class RecurringTransaction(Base, TimestampMixin):
     # Pausing (e.g. a cancelled subscription you might resume) without
     # losing the template and its posting history.
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
 
     account: Mapped["Account"] = relationship(foreign_keys=[account_id])
     transfer_account: Mapped["Account | None"] = relationship(foreign_keys=[transfer_account_id])

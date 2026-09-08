@@ -1,5 +1,5 @@
 """An account is any place money lives: bank account, card, cash, wallet."""
-from sqlalchemy import Boolean, Enum, String
+from sqlalchemy import Boolean, Enum, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -21,6 +21,7 @@ class Account(Base, TimestampMixin):
     # Hex color used for account-scoped UI accents (e.g. transaction list avatars).
     color: Mapped[str | None] = mapped_column(String(7), nullable=True)
     is_archived: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
 
     transactions: Mapped[list["Transaction"]] = relationship(
         back_populates="account",

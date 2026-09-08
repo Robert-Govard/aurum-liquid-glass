@@ -4,7 +4,7 @@ for why this doesn't do currency conversion) and the proactive-alert
 thresholds consumed by services/insights_service.py."""
 from decimal import Decimal
 
-from sqlalchemy import Integer, Numeric, String
+from sqlalchemy import ForeignKey, Integer, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -14,6 +14,9 @@ class AppSettings(Base):
     __tablename__ = "app_settings"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=True, unique=True
+    )
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="USD")
     # Consecutive complete months of negative cash flow / declining net worth
     # before insights_service.py raises the corresponding alert.
