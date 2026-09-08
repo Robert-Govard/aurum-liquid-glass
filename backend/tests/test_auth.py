@@ -1,4 +1,5 @@
 """Auth: registration, login, token refresh/rotation, logout."""
+import asyncio
 from datetime import datetime, timedelta, timezone
 
 import jwt as pyjwt
@@ -121,6 +122,26 @@ async def test_refresh_issues_new_pair_and_rotates(client):
 async def test_refresh_rejects_garbage_token(client):
     resp = await client.post("/auth/refresh", json={"refresh_token": "not-a-real-token"})
     assert resp.status_code == 401
+
+
+async def test_concurrent_refresh_of_the_same_token_only_one_wins(client):
+    """Regression test for the rotation race: two concurrent presentations
+    of the same still-valid refresh token must not both succeed. The
+    atomic conditional UPDATE in auth_service.refresh() (WHERE
+    revoked_at IS NULL, checked and set in one statement) means Postgres
+    serializes the two UPDATEs via row locking — the loser's WHERE clause
+    finds the row already revoked and matches zero rows, so exactly one
+    request gets a new token pair and the other is rejected."""
+    register_resp = await client.post("/auth/register", json={"email": "f@example.com", "password": "hunter22"})
+    old_refresh = register_resp.json()["refresh_token"]
+
+    first_resp, second_resp = await asyncio.gather(
+        client.post("/auth/refresh", json={"refresh_token": old_refresh}),
+        client.post("/auth/refresh", json={"refresh_token": old_refresh}),
+    )
+
+    statuses = sorted([first_resp.status_code, second_resp.status_code])
+    assert statuses == [200, 401], f"expected exactly one winner and one rejection, got {statuses}"
 
 
 async def test_logout_revokes_the_refresh_token(client):

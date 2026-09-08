@@ -54,13 +54,28 @@ async def refresh(session: AsyncSession, raw_token: str) -> TokenPair:
         raise HTTPException(status_code=401, detail="Invalid refresh token") from None
 
     token_hash = hash_token(raw_token)
-    result = await session.execute(select(RefreshToken).where(RefreshToken.token_hash == token_hash))
-    stored = result.scalar_one_or_none()
     now = datetime.now(timezone.utc)
-    if stored is None or stored.revoked_at is not None or stored.expires_at < now or stored.user_id != user_id:
+    # Atomic conditional UPDATE, not select-then-mutate-then-commit-later:
+    # the "is this token still valid" check and the revocation itself have
+    # to happen as one database operation, or two concurrent presentations
+    # of the same still-valid token (a race, or a client retry) could both
+    # read revoked_at IS NULL before either commits and both walk away with
+    # a live child pair — defeating rotation. Only one concurrent caller can
+    # match revoked_at.is_(None) here; the other gets rowcount == 0. Same
+    # pattern as logout() below.
+    result = await session.execute(
+        update(RefreshToken)
+        .where(
+            RefreshToken.token_hash == token_hash,
+            RefreshToken.user_id == user_id,
+            RefreshToken.revoked_at.is_(None),
+            RefreshToken.expires_at >= now,
+        )
+        .values(revoked_at=now)
+    )
+    if result.rowcount == 0:
         raise HTTPException(status_code=401, detail="Refresh token is no longer valid")
 
-    stored.revoked_at = now
     return await _issue_token_pair(session, user_id)
 
 
