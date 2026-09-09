@@ -9,7 +9,7 @@ import httpx
 from httpx import AsyncClient
 
 from app.services import crypto_service
-from tests.helpers import money, promote_current_user_to_admin
+from tests.helpers import auth_headers, money, promote_current_user_to_admin, register_user
 
 
 def _point(price: str, change_1h: str | None = None, change_24h: str | None = None, change_7d: str | None = None):
@@ -685,3 +685,62 @@ async def test_empty_archived_portfolio_can_be_deleted(client: AsyncClient):
 
     assert resp.status_code == 204
     assert (await client.get("/crypto/portfolios")).json() == []
+
+
+async def test_user_a_cannot_see_user_bs_holdings(client: AsyncClient, monkeypatch):
+    monkeypatch.setattr(crypto_service, "_fetch_market_data", _fake_fetch({"bitcoin": _point("50000")}))
+    b_tokens = await register_user(client, "cryptob@example.com")
+    await client.post(
+        "/crypto/holdings",
+        json={
+            "coingecko_id": "bitcoin",
+            "symbol": "btc",
+            "name": "Bitcoin",
+            "quantity": "1",
+            "price_per_unit": "40000",
+            "date": "2026-01-01",
+        },
+        headers=auth_headers(b_tokens["access_token"]),
+    )
+
+    a_holdings = (await client.get("/crypto/holdings")).json()["holdings"]
+    assert a_holdings == []
+
+
+async def test_user_a_cannot_transact_against_or_delete_user_bs_holding(client: AsyncClient, monkeypatch):
+    monkeypatch.setattr(crypto_service, "_fetch_market_data", _fake_fetch({"bitcoin": _point("50000")}))
+    b_tokens = await register_user(client, "cryptob2@example.com")
+
+    b_resp = await client.post(
+        "/crypto/holdings",
+        json={
+            "coingecko_id": "bitcoin",
+            "symbol": "btc",
+            "name": "Bitcoin",
+            "quantity": "1",
+            "price_per_unit": "40000",
+            "date": "2026-01-01",
+        },
+        headers=auth_headers(b_tokens["access_token"]),
+    )
+    b_asset_id = b_resp.json()["asset_id"]
+
+    add_txn_resp = await client.post(
+        f"/crypto/holdings/{b_asset_id}/transactions",
+        json={"type": "buy", "quantity": "1", "price_per_unit": "1", "date": "2026-01-02"},
+    )
+    assert add_txn_resp.status_code == 404
+
+    list_txn_resp = await client.get(f"/crypto/holdings/{b_asset_id}/transactions")
+    assert list_txn_resp.status_code == 404
+
+    # Fetch B's own transaction id (as B) so we can confirm A can't delete it either.
+    b_transactions = (
+        await client.get(
+            f"/crypto/holdings/{b_asset_id}/transactions", headers=auth_headers(b_tokens["access_token"])
+        )
+    ).json()
+    b_transaction_id = b_transactions[0]["id"]
+
+    delete_resp = await client.delete(f"/crypto/transactions/{b_transaction_id}")
+    assert delete_resp.status_code == 404
