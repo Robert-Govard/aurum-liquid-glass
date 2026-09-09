@@ -32,3 +32,51 @@ async def test_negative_contribution_is_allowed(client: AsyncClient):
 
     assert resp.status_code == 201
     assert money(resp.json()["current_amount"]) == money("150")
+
+
+from tests.helpers import auth_headers, register_user
+
+
+async def test_user_a_cannot_see_user_bs_goal(client):
+    b_tokens = await register_user(client, "goalb@example.com")
+    await client.post(
+        "/goals",
+        json={"name": "B's Goal", "target_amount": "1000.00"},
+        headers=auth_headers(b_tokens["access_token"]),
+    )
+
+    a_goals = (await client.get("/goals")).json()
+    assert a_goals == []
+
+
+async def test_user_a_cannot_update_or_delete_user_bs_goal(client):
+    b_tokens = await register_user(client, "goalb2@example.com")
+    b_goal = (
+        await client.post(
+            "/goals",
+            json={"name": "B's Goal", "target_amount": "1000.00"},
+            headers=auth_headers(b_tokens["access_token"]),
+        )
+    ).json()
+
+    update_resp = await client.patch(f"/goals/{b_goal['id']}", json={"name": "Hijacked"})
+    assert update_resp.status_code == 404
+
+    delete_resp = await client.delete(f"/goals/{b_goal['id']}")
+    assert delete_resp.status_code == 404
+
+
+async def test_user_a_cannot_contribute_to_user_bs_goal(client):
+    b_tokens = await register_user(client, "goalb3@example.com")
+    b_goal = (
+        await client.post(
+            "/goals",
+            json={"name": "B's Goal", "target_amount": "1000.00"},
+            headers=auth_headers(b_tokens["access_token"]),
+        )
+    ).json()
+
+    resp = await client.post(
+        f"/goals/{b_goal['id']}/contributions", json={"amount": "50.00", "date": "2026-01-15"}
+    )
+    assert resp.status_code == 404
