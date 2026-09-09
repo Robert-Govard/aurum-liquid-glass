@@ -128,7 +128,7 @@ async def _idle_cash_account_count(session: AsyncSession, threshold_amount: Deci
     )
 
 
-async def get_financial_alerts(session: AsyncSession) -> AlertsResponse:
+async def get_financial_alerts(session: AsyncSession, user_id: int) -> AlertsResponse:
     settings = await get_or_create_app_settings(session)
     alerts: list[FinancialAlert] = []
 
@@ -165,7 +165,14 @@ async def get_financial_alerts(session: AsyncSession) -> AlertsResponse:
         )
 
     today = date.today()
-    budget_status = await get_budget_status(session, today.year, today.month)
+    # budget_service.get_budget_status is now scoped by user_id (Task 8 of
+    # the multi-tenant plan) — threaded through here so this cross-service
+    # call doesn't blow up with a missing-argument TypeError. The other
+    # signals above (cash flow, net worth, risky allocation, idle cash)
+    # still read from get_or_create_app_settings/get_net_worth_summary,
+    # which remain instance-wide singletons until a later task in that plan
+    # converts them too.
+    budget_status = await get_budget_status(session, today.year, today.month, user_id)
     over_budget_count = sum(1 for item in budget_status.items if item.is_over_budget)
     if over_budget_count > 0:
         alerts.append(

@@ -5,7 +5,7 @@ from decimal import Decimal
 
 from httpx import AsyncClient
 
-from tests.helpers import money, txn_payload
+from tests.helpers import auth_headers, money, register_user, txn_payload
 
 
 async def test_budget_rejects_income_category(client: AsyncClient, categories):
@@ -164,3 +164,54 @@ async def test_budget_status_counts_a_split_transactions_share(client: AsyncClie
     items = {item["category_id"]: item for item in resp.json()["items"]}
     assert money(items[groceries]["spent"]) == Decimal("100.00")
     assert money(items[sweets]["spent"]) == Decimal("30.00")
+
+
+async def test_user_a_cannot_see_user_bs_budget(client, categories):
+    b_tokens = await register_user(client, "budgetb@example.com")
+    b_categories = (await client.get("/categories", headers=auth_headers(b_tokens["access_token"]))).json()
+    b_groceries = next(c["id"] for c in b_categories if c["name"] == "Groceries")
+
+    await client.post(
+        "/budgets",
+        json={"category_id": b_groceries, "monthly_limit": "500.00"},
+        headers=auth_headers(b_tokens["access_token"]),
+    )
+
+    a_budgets = (await client.get("/budgets")).json()
+    assert a_budgets == []
+
+
+async def test_user_a_cannot_update_user_bs_budget(client):
+    b_tokens = await register_user(client, "budgetb2@example.com")
+    b_categories = (await client.get("/categories", headers=auth_headers(b_tokens["access_token"]))).json()
+    b_groceries = next(c["id"] for c in b_categories if c["name"] == "Groceries")
+    b_budget = (
+        await client.post(
+            "/budgets",
+            json={"category_id": b_groceries, "monthly_limit": "500.00"},
+            headers=auth_headers(b_tokens["access_token"]),
+        )
+    ).json()
+
+    resp = await client.patch(f"/budgets/{b_budget['id']}", json={"monthly_limit": "1.00"})
+    assert resp.status_code == 404
+
+
+async def test_user_a_and_b_can_each_budget_their_own_groceries_category(client):
+    """Budget.category_id is globally unique (one budget per category
+    row), and each user has their own Groceries category row after the
+    per-user seeding change — so this must not collide."""
+    b_tokens = await register_user(client, "budgetb3@example.com")
+    a_categories = (await client.get("/categories")).json()
+    a_groceries = next(c["id"] for c in a_categories if c["name"] == "Groceries")
+    b_categories = (await client.get("/categories", headers=auth_headers(b_tokens["access_token"]))).json()
+    b_groceries = next(c["id"] for c in b_categories if c["name"] == "Groceries")
+
+    a_resp = await client.post("/budgets", json={"category_id": a_groceries, "monthly_limit": "300.00"})
+    b_resp = await client.post(
+        "/budgets",
+        json={"category_id": b_groceries, "monthly_limit": "400.00"},
+        headers=auth_headers(b_tokens["access_token"]),
+    )
+    assert a_resp.status_code == 201
+    assert b_resp.status_code == 201

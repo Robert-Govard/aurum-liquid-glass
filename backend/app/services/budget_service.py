@@ -17,6 +17,7 @@ from app.models.category import Category
 from app.models.enums import CategoryKind, TransactionType
 from app.models.transaction import Transaction, TransactionSplit
 from app.schemas.budget import BudgetCreate, BudgetStatus, BudgetStatusResponse, BudgetUpdate
+from app.services.scoped import get_owned_or_404, scoped
 
 _EAGER = (selectinload(Budget.category),)
 
@@ -26,15 +27,14 @@ def _month_bounds(year: int, month: int) -> tuple[date, date]:
     return date(year, month, 1), date(year, month, last_day)
 
 
-async def list_budgets(session: AsyncSession) -> list[Budget]:
-    result = await session.execute(select(Budget).options(*_EAGER).join(Category).order_by(Category.sort_order))
+async def list_budgets(session: AsyncSession, user_id: int) -> list[Budget]:
+    stmt = scoped(select(Budget), Budget, user_id).options(*_EAGER).join(Category).order_by(Category.sort_order)
+    result = await session.execute(stmt)
     return list(result.scalars().all())
 
 
-async def create_budget(session: AsyncSession, payload: BudgetCreate) -> Budget:
-    category = await session.get(Category, payload.category_id)
-    if category is None:
-        raise HTTPException(status_code=400, detail="Category not found")
+async def create_budget(session: AsyncSession, payload: BudgetCreate, user_id: int) -> Budget:
+    category = await get_owned_or_404(session, Category, payload.category_id, user_id, detail="Category not found")
     if category.kind != CategoryKind.EXPENSE:
         raise HTTPException(status_code=400, detail="Budgets can only be set on expense categories")
 
@@ -42,35 +42,31 @@ async def create_budget(session: AsyncSession, payload: BudgetCreate) -> Budget:
     if existing.scalar_one_or_none() is not None:
         raise HTTPException(status_code=400, detail=f"'{category.name}' already has a budget")
 
-    budget = Budget(category_id=payload.category_id, monthly_limit=payload.monthly_limit)
+    budget = Budget(category_id=payload.category_id, monthly_limit=payload.monthly_limit, user_id=user_id)
     session.add(budget)
     await session.commit()
     refreshed = await session.execute(select(Budget).options(*_EAGER).where(Budget.id == budget.id))
     return refreshed.scalar_one()
 
 
-async def update_budget(session: AsyncSession, budget_id: int, payload: BudgetUpdate) -> Budget:
-    budget = await session.get(Budget, budget_id)
-    if budget is None:
-        raise HTTPException(status_code=404, detail="Budget not found")
+async def update_budget(session: AsyncSession, budget_id: int, payload: BudgetUpdate, user_id: int) -> Budget:
+    budget = await get_owned_or_404(session, Budget, budget_id, user_id, detail="Budget not found")
     budget.monthly_limit = payload.monthly_limit
     await session.commit()
     refreshed = await session.execute(select(Budget).options(*_EAGER).where(Budget.id == budget_id))
     return refreshed.scalar_one()
 
 
-async def delete_budget(session: AsyncSession, budget_id: int) -> None:
-    budget = await session.get(Budget, budget_id)
-    if budget is None:
-        raise HTTPException(status_code=404, detail="Budget not found")
+async def delete_budget(session: AsyncSession, budget_id: int, user_id: int) -> None:
+    budget = await get_owned_or_404(session, Budget, budget_id, user_id, detail="Budget not found")
     await session.delete(budget)
     await session.commit()
 
 
-async def get_budget_status(session: AsyncSession, year: int, month: int) -> BudgetStatusResponse:
+async def get_budget_status(session: AsyncSession, year: int, month: int, user_id: int) -> BudgetStatusResponse:
     start, end = _month_bounds(year, month)
 
-    budgets = await list_budgets(session)
+    budgets = await list_budgets(session, user_id)
     if not budgets:
         return BudgetStatusResponse(year=year, month=month, items=[])
 
