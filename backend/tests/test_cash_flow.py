@@ -82,3 +82,29 @@ async def test_monthly_points_split_income_and_expense_correctly(client: AsyncCl
     assert money(point["income"]) == Decimal("2000.00")
     assert money(point["expense"]) == Decimal("300.00")
     assert money(point["net"]) == Decimal("1700.00")
+
+
+async def test_cash_flow_excludes_another_users_transactions(client: AsyncClient, account_id, categories):
+    from tests.helpers import auth_headers, register_user
+
+    b_tokens = await register_user(client, "cashflowb@example.com")
+    b_account = (
+        await client.post("/accounts", json={"name": "B Wallet", "type": "cash", "currency": "USD"},
+                          headers=auth_headers(b_tokens["access_token"]))
+    ).json()
+    b_categories = (await client.get("/categories", headers=auth_headers(b_tokens["access_token"]))).json()
+    b_salary = next(c["id"] for c in b_categories if c["name"] == "Salary")
+    await client.post(
+        "/transactions",
+        json=txn_payload(b_account["id"], amount="9999.00", type="income", category_id=b_salary, date="2026-08-01"),
+        headers=auth_headers(b_tokens["access_token"]),
+    )
+
+    salary_id = categories["Salary"]["id"]
+    await client.post(
+        "/transactions", json=txn_payload(account_id, amount="1000.00", type="income", category_id=salary_id, date="2026-08-01")
+    )
+
+    resp = await client.get("/cash-flow", params={"start_date": "2026-08-01", "end_date": "2026-08-31"})
+    body = resp.json()
+    assert money(body["total_income"]) == Decimal("1000.00")  # not 10999.00

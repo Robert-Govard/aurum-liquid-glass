@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.enums import TransactionType
 from app.models.transaction import Transaction
 from app.schemas.cash_flow import CashFlowPoint, CashFlowResponse
+from app.services.scoped import scoped
 
 
 def _next_month(year: int, month: int) -> tuple[int, int]:
@@ -20,11 +21,11 @@ def _next_month(year: int, month: int) -> tuple[int, int]:
 
 
 async def get_cash_flow(
-    session: AsyncSession, start_date: date_ | None, end_date: date_ | None
+    session: AsyncSession, start_date: date_ | None, end_date: date_ | None, user_id: int
 ) -> CashFlowResponse:
-    bounds_stmt = select(func.min(Transaction.date), func.max(Transaction.date)).where(
-        Transaction.type != TransactionType.TRANSFER
-    )
+    bounds_stmt = scoped(
+        select(func.min(Transaction.date), func.max(Transaction.date)), Transaction, user_id
+    ).where(Transaction.type != TransactionType.TRANSFER)
     if start_date:
         bounds_stmt = bounds_stmt.where(Transaction.date >= start_date)
     if end_date:
@@ -45,20 +46,20 @@ async def get_cash_flow(
     if effective_start is None or effective_end is None:
         return empty
 
-    rows_stmt = (
+    rows_stmt = scoped(
         select(
             extract("year", Transaction.date).label("year"),
             extract("month", Transaction.date).label("month"),
             Transaction.type,
             func.sum(Transaction.amount).label("amount"),
-        )
-        .where(
-            Transaction.type != TransactionType.TRANSFER,
-            Transaction.date >= effective_start,
-            Transaction.date <= effective_end,
-        )
-        .group_by("year", "month", Transaction.type)
-    )
+        ),
+        Transaction,
+        user_id,
+    ).where(
+        Transaction.type != TransactionType.TRANSFER,
+        Transaction.date >= effective_start,
+        Transaction.date <= effective_end,
+    ).group_by("year", "month", Transaction.type)
     rows = (await session.execute(rows_stmt)).all()
 
     by_month: dict[tuple[int, int], dict[TransactionType, Decimal]] = defaultdict(dict)
