@@ -577,13 +577,13 @@ async def delete_transaction(session: AsyncSession, transaction_id: int, user_id
 
 
 async def get_crypto_history(
-    session: AsyncSession, range_key: str, portfolio_id: int | None = None
+    session: AsyncSession, range_key: str, user_id: int, portfolio_id: int | None = None
 ) -> CryptoHistoryResponse:
     """Total crypto holdings value over time, for the History chart on the
     Crypto tab. Same "cumulative point events, forward-filled" approach as
     net_worth_service.py's own asset series — duplicated here rather than
     imported, so this can't destabilize the already-tested Net Worth engine,
-    and scoped to crypto-class assets only (a deleted holding's
+    and scoped to this user's crypto-class assets only (a deleted holding's
     AssetValuation rows are gone via cascade, so its history naturally
     drops out here too, same as it already does for Net Worth). Further
     scoped to one portfolio's assets when `portfolio_id` is given, for the
@@ -591,7 +591,7 @@ async def get_crypto_history(
     today = date_.today()
 
     asset_stmt = (
-        select(Asset.id)
+        scoped(select(Asset.id), Asset, user_id)
         .join(CryptoHolding, CryptoHolding.asset_id == Asset.id)
         .where(Asset.asset_class == AssetClass.CRYPTO)
     )
@@ -670,7 +670,7 @@ async def _fetch_90d_change(client: httpx.AsyncClient, api_key: str, coingecko_i
     return (last_price - first_price) / first_price * 100
 
 
-async def get_90d_performance(session: AsyncSession, portfolio_id: int | None) -> CryptoPerformanceResponse:
+async def get_90d_performance(session: AsyncSession, user_id: int, portfolio_id: int | None) -> CryptoPerformanceResponse:
     """Real 90-day % price change per currently-held coin, for the Crypto
     tab's Best/Worst Performer stat when the 90d range is picked. Unlike
     1h/24h/7d/30d/1y (all one field on the same batched /coins/markets sync
@@ -681,12 +681,12 @@ async def get_90d_performance(session: AsyncSession, portfolio_id: int | None) -
     as the seed fetch on adding a new holding. Bounded concurrency (5 at
     once) keeps a big portfolio from firing dozens of requests in the same
     instant."""
-    holdings = await list_holdings(session, portfolio_id)
+    holdings = await list_holdings(session, user_id, portfolio_id)
     held = [h for h in holdings if _compute_position(h.transactions)[0] > 0]
     if not held:
         return CryptoPerformanceResponse(items=[])
 
-    settings = await get_or_create_app_settings(session)
+    settings = await get_or_create_app_settings(session, user_id)
     api_key = _require_api_key()
     semaphore = asyncio.Semaphore(5)
 

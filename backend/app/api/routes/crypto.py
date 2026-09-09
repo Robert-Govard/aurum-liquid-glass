@@ -160,15 +160,18 @@ async def read_crypto_history(
     range: str = Query(default="30d", pattern=_HISTORY_RANGE_PATTERN),
     portfolio_id: int | None = None,
     session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ) -> CryptoHistoryResponse:
-    return await get_crypto_history(session, range, portfolio_id)
+    return await get_crypto_history(session, range, current_user.id, portfolio_id)
 
 
 @router.get("/performance/90d", response_model=CryptoPerformanceResponse)
 async def read_90d_performance(
-    portfolio_id: int | None = None, session: AsyncSession = Depends(get_session)
+    portfolio_id: int | None = None,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ) -> CryptoPerformanceResponse:
     """Backs the Best/Worst Performer stat only while the 90d range is
     selected — see get_90d_performance's docstring for why this is a
     separate on-demand call instead of a cached field like 7d/30d/1y."""
-    return await get_90d_performance(session, portfolio_id)
+    return await get_90d_performance(session, current_user.id, portfolio_id)

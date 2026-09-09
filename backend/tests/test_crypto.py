@@ -744,3 +744,25 @@ async def test_user_a_cannot_transact_against_or_delete_user_bs_holding(client: 
 
     delete_resp = await client.delete(f"/crypto/transactions/{b_transaction_id}")
     assert delete_resp.status_code == 404
+
+
+async def test_crypto_history_only_counts_the_callers_own_holdings(client, monkeypatch):
+    monkeypatch.setattr(crypto_service, "_fetch_market_data", _fake_fetch({"bitcoin": _point("50000")}))
+    await _add_bitcoin(client, "1", "40000")
+
+    b_tokens = await register_user(client, "cryptob3@example.com")
+    await client.post(
+        "/crypto/holdings",
+        json={
+            "coingecko_id": "bitcoin",
+            "symbol": "btc",
+            "name": "Bitcoin",
+            "quantity": "10",
+            "price_per_unit": "1",
+            "date": "2026-01-01",
+        },
+        headers=auth_headers(b_tokens["access_token"]),
+    )
+
+    a_history = (await client.get("/crypto/history", params={"range": "30d"})).json()
+    assert money(a_history["current"]) == money("50000")  # only A's 1 BTC, not B's 10
