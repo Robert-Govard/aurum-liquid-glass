@@ -26,6 +26,7 @@ from app.schemas.net_worth import NetWorthSummary
 from app.services.budget_service import get_budget_status
 from app.services.dashboard_service import get_dashboard_summary
 from app.services.net_worth_service import get_net_worth_summary
+from app.services.scoped import scoped
 from app.services.settings_service import get_or_create_app_settings
 
 MAX_LOOKBACK_MONTHS = 24
@@ -40,13 +41,13 @@ def _previous_month(year: int, month: int) -> tuple[int, int]:
     return (year - 1, 12) if month == 1 else (year, month - 1)
 
 
-async def _negative_cash_flow_streak(session: AsyncSession) -> int:
+async def _negative_cash_flow_streak(session: AsyncSession, user_id: int) -> int:
     today = date.today()
     year, month = _previous_month(today.year, today.month)
 
     streak = 0
     for _ in range(MAX_LOOKBACK_MONTHS):
-        summary = await get_dashboard_summary(session, year, month)
+        summary = await get_dashboard_summary(session, year, month, user_id)
         if summary.net >= 0:
             break
         streak += 1
@@ -79,11 +80,13 @@ def _net_worth_decline_streak(summary: NetWorthSummary) -> int:
     return streak
 
 
-async def _idle_cash_account_count(session: AsyncSession, threshold_amount: Decimal, threshold_days: int) -> int:
+async def _idle_cash_account_count(
+    session: AsyncSession, threshold_amount: Decimal, threshold_days: int, user_id: int
+) -> int:
     eligible_ids = set(
         (
             await session.execute(
-                select(Account.id).where(
+                scoped(select(Account.id), Account, user_id).where(
                     Account.is_archived.is_(False), Account.type.in_(_IDLE_CASH_ACCOUNT_TYPES)
                 )
             )
@@ -98,7 +101,11 @@ async def _idle_cash_account_count(session: AsyncSession, threshold_amount: Deci
     # never stored, only ever summed from the full transaction history — plus
     # tracking the most recent date that touched each account along the way.
     rows = await session.execute(
-        select(Transaction.type, Transaction.amount, Transaction.account_id, Transaction.transfer_account_id, Transaction.date)
+        scoped(
+            select(Transaction.type, Transaction.amount, Transaction.account_id, Transaction.transfer_account_id, Transaction.date),
+            Transaction,
+            user_id,
+        )
     )
     balances: dict[int, Decimal] = defaultdict(Decimal)
     last_activity: dict[int, date] = {}
@@ -136,7 +143,7 @@ async def get_financial_alerts(session: AsyncSession, user_id: int) -> AlertsRes
     settings = await get_or_create_app_settings(session, user_id)
     alerts: list[FinancialAlert] = []
 
-    cash_flow_streak = await _negative_cash_flow_streak(session)
+    cash_flow_streak = await _negative_cash_flow_streak(session, user_id)
     if cash_flow_streak >= settings.negative_cash_flow_threshold_months:
         alerts.append(
             FinancialAlert(
@@ -146,7 +153,7 @@ async def get_financial_alerts(session: AsyncSession, user_id: int) -> AlertsRes
             )
         )
 
-    net_worth_summary = await get_net_worth_summary(session, "all")
+    net_worth_summary = await get_net_worth_summary(session, "all", user_id)
 
     net_worth_streak = _net_worth_decline_streak(net_worth_summary)
     if net_worth_streak >= settings.net_worth_decline_threshold_months:
@@ -169,20 +176,11 @@ async def get_financial_alerts(session: AsyncSession, user_id: int) -> AlertsRes
         )
 
     today = date.today()
-    # budget_service.get_budget_status is now scoped by user_id (Task 8 of
-    # the multi-tenant plan) — threaded through here so this cross-service
-    # call doesn't blow up with a missing-argument TypeError. get_or_create_app_settings
-    # above is likewise now scoped by user_id (Task 11). Four of the five
-    # alert signals in this function remain instance-wide (unscoped by
-    # user) until Part 3 of that plan converts them too:
-    #   - _negative_cash_flow_streak(session) above — reads all
-    #     transactions across all users
-    #   - the net-worth-decline check above, via get_net_worth_summary
-    #   - the risky-allocation check above, also via get_net_worth_summary
-    #   - _idle_cash_account_count(session, ...) below — reads all
-    #     accounts/transactions across all users
-    # Only this budget-exceeded check and the settings thresholds above
-    # are properly scoped to the calling user today.
+    # Every signal in this function is now scoped to the calling user:
+    # settings/thresholds (get_or_create_app_settings, Part 1), budget
+    # status (get_budget_status, Part 1), cash-flow streak and net-worth
+    # decline/risky-allocation (get_dashboard_summary/get_net_worth_summary,
+    # this plan's Task 2/Task 5), and idle cash (below, this same task).
     budget_status = await get_budget_status(session, today.year, today.month, user_id)
     over_budget_count = sum(1 for item in budget_status.items if item.is_over_budget)
     if over_budget_count > 0:
@@ -195,7 +193,7 @@ async def get_financial_alerts(session: AsyncSession, user_id: int) -> AlertsRes
         )
 
     idle_cash_count = await _idle_cash_account_count(
-        session, settings.idle_cash_threshold_amount, settings.idle_cash_threshold_days
+        session, settings.idle_cash_threshold_amount, settings.idle_cash_threshold_days, user_id
     )
     if idle_cash_count > 0:
         alerts.append(
