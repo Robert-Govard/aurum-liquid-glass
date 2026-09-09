@@ -179,6 +179,20 @@ async def _reset_sequence(session: AsyncSession, table: str, rows: list) -> None
 
 
 async def restore_backup(session: AsyncSession, payload: BackupPayload) -> None:
+    """Restore a full-instance backup — see module docstring for the
+    snapshot-restore/transaction semantics.
+
+    WARNING: this function deletes and replaces data for EVERY user in the
+    system, not just whoever is calling it — every account, category, tag,
+    transaction, asset, budget, goal, and recurring transaction row in the
+    whole database is wiped and rebuilt from `payload`, regardless of which
+    user's data that payload actually contains. This is a known, temporary
+    limitation (backup_service.py is not yet user-aware) accepted for now
+    and mitigated only by restricting the calling route to admins (see
+    api/routes/backup.py). A later "Part 3" multi-tenant data isolation
+    plan is expected to rework backup/restore to be scoped per user. Do not
+    call this from any non-admin-gated path.
+    """
     if payload.aurum_backup_version != BACKUP_FORMAT_VERSION:
         raise HTTPException(
             400,
