@@ -3,6 +3,7 @@ transactions (create/update with tag_ids, filtering by tag_id).
 """
 from httpx import AsyncClient
 
+from tests.helpers import auth_headers, register_user
 from tests.helpers import txn_payload as _txn
 
 
@@ -78,3 +79,35 @@ async def test_filter_transactions_by_tag(client: AsyncClient, account_id, categ
     body = resp.json()
     assert body["total"] == 1
     assert body["items"][0]["tags"][0]["id"] == tag
+
+
+async def test_user_a_cannot_see_user_bs_tags(client):
+    b_tokens = await register_user(client, "tagb@example.com")
+    await client.post("/tags", json={"name": "b-only"}, headers=auth_headers(b_tokens["access_token"]))
+
+    a_tags = (await client.get("/tags")).json()
+    assert all(t["name"] != "b-only" for t in a_tags)
+
+
+async def test_user_a_and_b_can_each_have_a_tag_with_the_same_name(client):
+    """Tag names are unique per-user now, not globally — two different
+    users independently creating "groceries" must not collide."""
+    b_tokens = await register_user(client, "tagb2@example.com")
+
+    a_tag = (await client.post("/tags", json={"name": "groceries"})).json()
+    b_tag = (
+        await client.post("/tags", json={"name": "groceries"}, headers=auth_headers(b_tokens["access_token"]))
+    ).json()
+
+    assert a_tag["id"] != b_tag["id"]
+    assert a_tag["name"] == b_tag["name"] == "groceries"
+
+
+async def test_user_a_cannot_delete_user_bs_tag(client):
+    b_tokens = await register_user(client, "tagb3@example.com")
+    b_tag = (
+        await client.post("/tags", json={"name": "b-only"}, headers=auth_headers(b_tokens["access_token"]))
+    ).json()
+
+    resp = await client.delete(f"/tags/{b_tag['id']}")
+    assert resp.status_code == 404
