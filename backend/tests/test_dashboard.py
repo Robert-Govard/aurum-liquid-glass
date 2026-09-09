@@ -182,3 +182,33 @@ async def test_a_single_category_slice_has_no_children_breakdown(client: AsyncCl
     breakdown = {row["name"]: row for row in resp.json()["spending_by_category"]}
 
     assert breakdown["Groceries"]["children"] == []
+
+
+async def test_rollup_excludes_another_users_categories_and_transactions(client: AsyncClient, account_id, categories):
+    from tests.helpers import auth_headers, register_user
+
+    b_tokens = await register_user(client, "dashb@example.com")
+    b_account = (
+        await client.post("/accounts", json={"name": "B Wallet", "type": "cash", "currency": "USD"},
+                          headers=auth_headers(b_tokens["access_token"]))
+    ).json()
+    b_categories = (await client.get("/categories", headers=auth_headers(b_tokens["access_token"]))).json()
+    b_groceries = next(c["id"] for c in b_categories if c["name"] == "Groceries")
+    await client.post(
+        "/transactions",
+        json=_txn(b_account["id"], amount="500.00", category_id=b_groceries, date="2026-08-01"),
+        headers=auth_headers(b_tokens["access_token"]),
+    )
+
+    await client.post(
+        "/transactions", json=_txn(account_id, amount="75.00", category_id=categories["Groceries"]["id"], date="2026-08-01")
+    )
+
+    resp = await client.get("/dashboard/summary", params={"year": 2026, "month": 8})
+    body = resp.json()
+    breakdown = {row["name"]: row for row in body["spending_by_category"]}
+    # Only user A's Groceries category should appear with 75.00, not 575.00 (leaked from user B)
+    # Also check that there's only one Groceries entry for user A's category
+    groceries_entries = [row for row in body["spending_by_category"] if row["name"] == "Groceries"]
+    assert len(groceries_entries) == 1
+    assert money(groceries_entries[0]["amount"]) == Decimal("75.00")  # not 575.00

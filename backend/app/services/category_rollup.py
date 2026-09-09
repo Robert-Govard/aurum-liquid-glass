@@ -23,6 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.category import Category
 from app.models.enums import TransactionType
 from app.models.transaction import Transaction, TransactionSplit
+from app.services.scoped import scoped
 
 
 @dataclass
@@ -66,6 +67,7 @@ async def _raw_category_contributions(
     transaction_type: TransactionType,
     start_date: date_ | None,
     end_date: date_ | None,
+    user_id: int,
 ) -> list[tuple[int, int, Decimal]]:
     """(transaction_id, category_id, amount) for every category a
     transaction of this type/date-range contributed to. A plain transaction
@@ -73,13 +75,17 @@ async def _raw_category_contributions(
     per split line — never both for the same transaction, since a
     transaction is either plain (category_id set, no splits) or split
     (category_id NULL, 2+ splits), enforced at write time."""
-    plain_stmt = select(Transaction.id, Transaction.category_id, Transaction.amount).where(
-        Transaction.type == transaction_type, Transaction.category_id.is_not(None)
-    )
+    plain_stmt = scoped(
+        select(Transaction.id, Transaction.category_id, Transaction.amount), Transaction, user_id
+    ).where(Transaction.type == transaction_type, Transaction.category_id.is_not(None))
     split_stmt = (
         select(TransactionSplit.transaction_id, TransactionSplit.category_id, TransactionSplit.amount)
         .join(Transaction, Transaction.id == TransactionSplit.transaction_id)
-        .where(Transaction.type == transaction_type, TransactionSplit.category_id.is_not(None))
+        .where(
+            Transaction.type == transaction_type,
+            Transaction.user_id == user_id,
+            TransactionSplit.category_id.is_not(None),
+        )
     )
     if start_date is not None:
         plain_stmt = plain_stmt.where(Transaction.date >= start_date)
@@ -97,6 +103,7 @@ async def rollup_spending_by_top_level_category(
     session: AsyncSession,
     *,
     transaction_type: TransactionType,
+    user_id: int,
     start_date: date_ | None = None,
     end_date: date_ | None = None,
 ) -> list[CategoryRollupItem]:
@@ -104,12 +111,14 @@ async def rollup_spending_by_top_level_category(
     desc (category sort_order as tiebreak — same order the SQL-only version
     used to produce)."""
     contributions = await _raw_category_contributions(
-        session, transaction_type=transaction_type, start_date=start_date, end_date=end_date
+        session, transaction_type=transaction_type, start_date=start_date, end_date=end_date, user_id=user_id
     )
     if not contributions:
         return []
 
-    categories_by_id = {c.id: c for c in (await session.execute(select(Category))).scalars().all()}
+    categories_by_id = {
+        c.id: c for c in (await session.execute(scoped(select(Category), Category, user_id))).scalars().all()
+    }
 
     amount_by_effective: dict[int, Decimal] = defaultdict(Decimal)
     txn_ids_by_effective: dict[int, set[int]] = defaultdict(set)
