@@ -18,6 +18,7 @@ from app.models.enums import CategoryKind, RecurringFrequency, TransactionType
 from app.models.recurring import RecurringTransaction
 from app.models.transaction import Transaction
 from app.schemas.recurring import RecurringTransactionCreate, RecurringTransactionRead, RecurringTransactionUpdate
+from app.services.scoped import get_owned_or_404, scoped
 
 _EAGER = (
     selectinload(RecurringTransaction.account),
@@ -32,14 +33,12 @@ _TYPE_TO_CATEGORY_KIND = {
 
 
 async def _ensure_category_matches_type(
-    session: AsyncSession, category_id: int | None, transaction_type: TransactionType
+    session: AsyncSession, category_id: int | None, transaction_type: TransactionType, user_id: int
 ) -> None:
     if category_id is None:
         return
     expected_kind = _TYPE_TO_CATEGORY_KIND.get(transaction_type)
-    category = await session.get(Category, category_id)
-    if category is None:
-        raise HTTPException(status_code=400, detail="Category not found")
+    category = await get_owned_or_404(session, Category, category_id, user_id, detail="Category not found")
     if expected_kind is not None and category.kind != expected_kind:
         raise HTTPException(
             status_code=400,
@@ -96,9 +95,11 @@ def _to_read(recurring: RecurringTransaction) -> RecurringTransactionRead:
     )
 
 
-async def _get_or_404(session: AsyncSession, recurring_id: int) -> RecurringTransaction:
+async def _get_or_404(session: AsyncSession, recurring_id: int, user_id: int) -> RecurringTransaction:
     result = await session.execute(
-        select(RecurringTransaction).options(*_EAGER).where(RecurringTransaction.id == recurring_id)
+        select(RecurringTransaction)
+        .options(*_EAGER)
+        .where(RecurringTransaction.id == recurring_id, RecurringTransaction.user_id == user_id)
     )
     recurring = result.scalar_one_or_none()
     if recurring is None:
@@ -106,47 +107,50 @@ async def _get_or_404(session: AsyncSession, recurring_id: int) -> RecurringTran
     return recurring
 
 
-async def list_recurring(session: AsyncSession) -> list[RecurringTransactionRead]:
-    result = await session.execute(
-        select(RecurringTransaction).options(*_EAGER).order_by(RecurringTransaction.id)
+async def list_recurring(session: AsyncSession, user_id: int) -> list[RecurringTransactionRead]:
+    stmt = scoped(select(RecurringTransaction), RecurringTransaction, user_id).options(*_EAGER).order_by(
+        RecurringTransaction.id
     )
+    result = await session.execute(stmt)
     return [_to_read(row) for row in result.scalars().all()]
 
 
-async def create_recurring(session: AsyncSession, payload: RecurringTransactionCreate) -> RecurringTransactionRead:
-    await _ensure_category_matches_type(session, payload.category_id, payload.type)
-    recurring = RecurringTransaction(**payload.model_dump())
+async def create_recurring(
+    session: AsyncSession, payload: RecurringTransactionCreate, user_id: int
+) -> RecurringTransactionRead:
+    await _ensure_category_matches_type(session, payload.category_id, payload.type, user_id)
+    recurring = RecurringTransaction(**payload.model_dump(), user_id=user_id)
     session.add(recurring)
     await session.commit()
-    return _to_read(await _get_or_404(session, recurring.id))
+    return _to_read(await _get_or_404(session, recurring.id, user_id))
 
 
 async def update_recurring(
-    session: AsyncSession, recurring_id: int, payload: RecurringTransactionUpdate
+    session: AsyncSession, recurring_id: int, payload: RecurringTransactionUpdate, user_id: int
 ) -> RecurringTransactionRead:
-    recurring = await _get_or_404(session, recurring_id)
+    recurring = await _get_or_404(session, recurring_id, user_id)
     updates = payload.model_dump(exclude_unset=True)
     effective_type = updates.get("type", recurring.type)
     effective_category_id = updates.get("category_id", recurring.category_id)
-    await _ensure_category_matches_type(session, effective_category_id, effective_type)
+    await _ensure_category_matches_type(session, effective_category_id, effective_type, user_id)
     for field, value in updates.items():
         setattr(recurring, field, value)
     await session.commit()
-    return _to_read(await _get_or_404(session, recurring_id))
+    return _to_read(await _get_or_404(session, recurring_id, user_id))
 
 
-async def delete_recurring(session: AsyncSession, recurring_id: int) -> None:
-    recurring = await session.get(RecurringTransaction, recurring_id)
-    if recurring is None:
-        raise HTTPException(status_code=404, detail="Recurring transaction not found")
+async def delete_recurring(session: AsyncSession, recurring_id: int, user_id: int) -> None:
+    recurring = await get_owned_or_404(
+        session, RecurringTransaction, recurring_id, user_id, detail="Recurring transaction not found"
+    )
     await session.delete(recurring)
     await session.commit()
 
 
-async def post_recurring(session: AsyncSession, recurring_id: int) -> RecurringTransactionRead:
+async def post_recurring(session: AsyncSession, recurring_id: int, user_id: int) -> RecurringTransactionRead:
     """Creates a real Transaction from the template, dated today, and moves
     last_posted_date forward — the only thing that advances the schedule."""
-    recurring = await _get_or_404(session, recurring_id)
+    recurring = await _get_or_404(session, recurring_id, user_id)
     today = date_.today()
 
     session.add(
@@ -164,4 +168,4 @@ async def post_recurring(session: AsyncSession, recurring_id: int) -> RecurringT
     )
     recurring.last_posted_date = today
     await session.commit()
-    return _to_read(await _get_or_404(session, recurring_id))
+    return _to_read(await _get_or_404(session, recurring_id, user_id))
