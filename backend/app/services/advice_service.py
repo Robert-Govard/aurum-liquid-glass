@@ -19,6 +19,7 @@ from app.models.enums import TransactionType
 from app.models.transaction import Transaction
 from app.schemas.advice import AdviceItem, AdviceResponse
 from app.services.dashboard_service import get_dashboard_summary
+from app.services.scoped import scoped
 
 TRAILING_MONTHS = 3
 RISING_CATEGORY_THRESHOLD_PERCENT = 25
@@ -34,25 +35,23 @@ def _previous_month(year: int, month: int) -> tuple[int, int]:
     return (year - 1, 12) if month == 1 else (year, month - 1)
 
 
-async def _category_expense_totals(session: AsyncSession, year: int, month: int) -> dict[int, Decimal]:
+async def _category_expense_totals(session: AsyncSession, year: int, month: int, user_id: int) -> dict[int, Decimal]:
     start, end = _month_bounds(year, month)
-    stmt = (
-        select(Transaction.category_id, func.sum(Transaction.amount))
-        .where(
-            Transaction.type == TransactionType.EXPENSE,
-            Transaction.category_id.is_not(None),
-            Transaction.date >= start,
-            Transaction.date <= end,
-        )
-        .group_by(Transaction.category_id)
-    )
+    stmt = scoped(
+        select(Transaction.category_id, func.sum(Transaction.amount)), Transaction, user_id
+    ).where(
+        Transaction.type == TransactionType.EXPENSE,
+        Transaction.category_id.is_not(None),
+        Transaction.date >= start,
+        Transaction.date <= end,
+    ).group_by(Transaction.category_id)
     return {row[0]: row[1] for row in (await session.execute(stmt)).all()}
 
 
-async def _rising_category_advice(session: AsyncSession, year: int, month: int) -> AdviceItem | None:
+async def _rising_category_advice(session: AsyncSession, year: int, month: int, user_id: int) -> AdviceItem | None:
     """The expense category furthest above its own trailing-3-month average,
     if that's at least RISING_CATEGORY_THRESHOLD_PERCENT higher."""
-    current_totals = await _category_expense_totals(session, year, month)
+    current_totals = await _category_expense_totals(session, year, month, user_id)
     if not current_totals:
         return None
 
@@ -60,7 +59,7 @@ async def _rising_category_advice(session: AsyncSession, year: int, month: int) 
     y, m = year, month
     for _ in range(TRAILING_MONTHS):
         y, m = _previous_month(y, m)
-        for cat_id, amount in (await _category_expense_totals(session, y, m)).items():
+        for cat_id, amount in (await _category_expense_totals(session, y, m, user_id)).items():
             trailing_totals[cat_id] += amount
 
     best: tuple[float, int, Decimal, Decimal] | None = None
@@ -76,6 +75,10 @@ async def _rising_category_advice(session: AsyncSession, year: int, month: int) 
         return None
 
     increase_percent, cat_id, current, average = best
+    # cat_id came from current_totals, itself already scoped to this
+    # user's own transactions above — a plain session.get is safe here,
+    # it can only ever resolve to a category this same user owns (or, if
+    # the category was somehow deleted mid-request, None, handled below).
     category = await session.get(Category, cat_id)
     if category is None:
         return None
@@ -92,18 +95,20 @@ async def _rising_category_advice(session: AsyncSession, year: int, month: int) 
     )
 
 
-async def _unbudgeted_top_category_advice(session: AsyncSession, year: int, month: int) -> AdviceItem | None:
+async def _unbudgeted_top_category_advice(session: AsyncSession, year: int, month: int, user_id: int) -> AdviceItem | None:
     """This month's highest-spending expense category that has no budget."""
-    current_totals = await _category_expense_totals(session, year, month)
+    current_totals = await _category_expense_totals(session, year, month, user_id)
     if not current_totals:
         return None
 
-    budgeted_ids = {row[0] for row in (await session.execute(select(Budget.category_id))).all()}
+    budgeted_ids = {
+        row[0] for row in (await session.execute(scoped(select(Budget.category_id), Budget, user_id))).all()
+    }
 
     for cat_id, amount in sorted(current_totals.items(), key=lambda item: item[1], reverse=True):
         if cat_id in budgeted_ids:
             continue
-        category = await session.get(Category, cat_id)
+        category = await session.get(Category, cat_id)  # safe: cat_id is from this user's own scoped totals
         if category is None:
             continue
         return AdviceItem(
@@ -115,12 +120,12 @@ async def _unbudgeted_top_category_advice(session: AsyncSession, year: int, mont
     return None
 
 
-async def _savings_rate_trend_advice(session: AsyncSession, year: int, month: int) -> AdviceItem | None:
+async def _savings_rate_trend_advice(session: AsyncSession, year: int, month: int, user_id: int) -> AdviceItem | None:
     """This month's savings rate (net / real_income) vs. last month's, when
     the swing is large enough to be worth mentioning."""
-    current = await get_dashboard_summary(session, year, month)
+    current = await get_dashboard_summary(session, year, month, user_id)
     prev_year, prev_month = _previous_month(year, month)
-    previous = await get_dashboard_summary(session, prev_year, prev_month)
+    previous = await get_dashboard_summary(session, prev_year, prev_month, user_id)
 
     if current.real_income <= 0 or previous.real_income <= 0:
         return None
@@ -139,13 +144,13 @@ async def _savings_rate_trend_advice(session: AsyncSession, year: int, month: in
     )
 
 
-async def get_advice(session: AsyncSession) -> AdviceResponse:
+async def get_advice(session: AsyncSession, user_id: int) -> AdviceResponse:
     today = date.today()
     generators = (_rising_category_advice, _unbudgeted_top_category_advice, _savings_rate_trend_advice)
 
     items: list[AdviceItem] = []
     for generate in generators:
-        item = await generate(session, today.year, today.month)
+        item = await generate(session, today.year, today.month, user_id)
         if item is not None:
             items.append(item)
 
