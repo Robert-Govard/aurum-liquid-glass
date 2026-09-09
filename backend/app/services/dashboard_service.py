@@ -10,6 +10,7 @@ from app.models.enums import TransactionType
 from app.models.transaction import Transaction
 from app.schemas.dashboard import CategoryBreakdownChildItem, CategoryBreakdownItem, DashboardSummary
 from app.services.category_rollup import rollup_spending_by_top_level_category
+from app.services.scoped import scoped
 
 # Categorical slots are capped at 8 (dataviz skill: a 9th series folds into "Other",
 # never a generated hue) — this is also the exact size of the default category set.
@@ -22,14 +23,12 @@ def _month_bounds(year: int, month: int) -> tuple[date, date]:
     return date(year, month, 1), date(year, month, last_day)
 
 
-async def get_dashboard_summary(session: AsyncSession, year: int, month: int) -> DashboardSummary:
+async def get_dashboard_summary(session: AsyncSession, year: int, month: int, user_id: int) -> DashboardSummary:
     start, end = _month_bounds(year, month)
 
-    totals_stmt = (
-        select(Transaction.type, func.coalesce(func.sum(Transaction.amount), 0))
-        .where(Transaction.date >= start, Transaction.date <= end)
-        .group_by(Transaction.type)
-    )
+    totals_stmt = scoped(
+        select(Transaction.type, func.coalesce(func.sum(Transaction.amount), 0)), Transaction, user_id
+    ).where(Transaction.date >= start, Transaction.date <= end).group_by(Transaction.type)
     totals_result = await session.execute(totals_stmt)
     totals: dict[TransactionType, Decimal] = {row[0]: row[1] for row in totals_result.all()}
 
@@ -42,7 +41,7 @@ async def get_dashboard_summary(session: AsyncSession, year: int, month: int) ->
     # lines instead — rollup_spending_by_top_level_category handles both
     # the same way a plain transaction's category already was.
     rows = await rollup_spending_by_top_level_category(
-        session, transaction_type=TransactionType.EXPENSE, start_date=start, end_date=end
+        session, transaction_type=TransactionType.EXPENSE, start_date=start, end_date=end, user_id=user_id
     )
 
     top_rows, rest_rows = rows[:MAX_CHART_SLICES], rows[MAX_CHART_SLICES:]
