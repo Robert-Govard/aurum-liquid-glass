@@ -759,6 +759,93 @@ async def test_user_a_cannot_transact_against_or_delete_user_bs_holding(client: 
     assert delete_resp.status_code == 404
 
 
+async def test_user_a_cannot_patch_user_bs_transaction(client: AsyncClient, monkeypatch):
+    monkeypatch.setattr(crypto_service, "_fetch_market_data", _fake_fetch({"bitcoin": _point("50000")}))
+    b_tokens = await register_user(client, "cryptob4@example.com")
+
+    b_resp = await client.post(
+        "/crypto/holdings",
+        json={
+            "coingecko_id": "bitcoin",
+            "symbol": "btc",
+            "name": "Bitcoin",
+            "quantity": "1",
+            "price_per_unit": "40000",
+            "date": "2026-01-01",
+        },
+        headers=auth_headers(b_tokens["access_token"]),
+    )
+    b_asset_id = b_resp.json()["asset_id"]
+
+    # Fetch B's own transaction id (as B) so we can attempt to PATCH it as A.
+    b_transactions = (
+        await client.get(
+            f"/crypto/holdings/{b_asset_id}/transactions", headers=auth_headers(b_tokens["access_token"])
+        )
+    ).json()
+    b_transaction_id = b_transactions[0]["id"]
+
+    patch_resp = await client.patch(f"/crypto/transactions/{b_transaction_id}", json={"quantity": "2"})
+    assert patch_resp.status_code == 404
+
+
+async def test_user_bs_price_sync_is_not_suppressed_by_user_as_recent_sync(client: AsyncClient, monkeypatch):
+    """crypto_sync_state is one row per user (not a single global
+    singleton) precisely so that one user's recent sync can never make
+    another user's holdings look "already synced" and skip fetching a
+    price for them. This proves the two users' timestamps are tracked
+    independently rather than as one shared value."""
+    # User A syncs — creating a holding always does an immediate price
+    # fetch (see crypto_service.create_holding) and, on success, bumps
+    # A's own last_synced_at to "now".
+    monkeypatch.setattr(crypto_service, "_fetch_market_data", _fake_fetch({"bitcoin": _point("50000")}))
+    await _add_bitcoin(client, "1", "40000")
+
+    b_tokens = await register_user(client, "cryptob5@example.com")
+
+    # Simulate a CoinGecko outage while B creates their own (different)
+    # holding, so B's sync state is never touched (create_holding only
+    # bumps last_synced_at after a *successful* fetch) — this leaves B
+    # with no sync record at all, same as any brand-new user.
+    async def broken_fetch(coingecko_ids, vs_currency):
+        raise httpx.HTTPError("outage")
+
+    monkeypatch.setattr(crypto_service, "_fetch_market_data", broken_fetch)
+    b_resp = await client.post(
+        "/crypto/holdings",
+        json={
+            "coingecko_id": "ethereum",
+            "symbol": "eth",
+            "name": "Ethereum",
+            "quantity": "1",
+            "price_per_unit": "2000",
+            "date": "2026-01-01",
+        },
+        headers=auth_headers(b_tokens["access_token"]),
+    )
+    assert b_resp.status_code == 201, b_resp.text
+    assert b_resp.json()["current_price"] is None  # outage during creation left it unpriced
+
+    # CoinGecko is back up. If the two users' sync timestamps were ever
+    # tracked as one shared/global value instead of one row per user, B's
+    # GET here would see A's still-fresh (well within AUTO_REFRESH_INTERVAL)
+    # timestamp and wrongly skip fetching a price for B's holding.
+    calls: list[list[str]] = []
+
+    async def counting_fetch(coingecko_ids, vs_currency):
+        calls.append(coingecko_ids)
+        return {"ethereum": _point("2500")}
+
+    monkeypatch.setattr(crypto_service, "_fetch_market_data", counting_fetch)
+
+    b_holdings_resp = await client.get("/crypto/holdings", headers=auth_headers(b_tokens["access_token"]))
+    body = b_holdings_resp.json()
+
+    assert body["synced"] is True
+    assert calls == [["ethereum"]]
+    assert money(body["holdings"][0]["current_price"]) == money("2500")
+
+
 async def test_crypto_history_only_counts_the_callers_own_holdings(client, monkeypatch):
     monkeypatch.setattr(crypto_service, "_fetch_market_data", _fake_fetch({"bitcoin": _point("50000")}))
     await _add_bitcoin(client, "1", "40000")
