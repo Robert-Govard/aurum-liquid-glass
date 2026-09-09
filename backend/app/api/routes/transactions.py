@@ -7,11 +7,13 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.api.deps import get_session
+from app.api.deps import get_current_user, get_session
+from app.models.account import Account
 from app.models.category import Category
 from app.models.enums import CategoryKind, TransactionType
 from app.models.tag import Tag
 from app.models.transaction import Transaction, TransactionSplit
+from app.models.user import User
 from app.schemas.transaction import (
     TransactionBulkCreate,
     TransactionBulkCreateResult,
@@ -23,6 +25,7 @@ from app.schemas.transaction import (
     split_rule_violation,
     transfer_rule_violation,
 )
+from app.services.scoped import get_owned_or_404, scoped
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
 
@@ -34,10 +37,10 @@ _EAGER = (
 )
 
 
-async def _resolve_tags(session: AsyncSession, tag_ids: list[int]) -> list[Tag]:
+async def _resolve_tags(session: AsyncSession, tag_ids: list[int], user_id: int) -> list[Tag]:
     if not tag_ids:
         return []
-    result = await session.execute(select(Tag).where(Tag.id.in_(tag_ids)))
+    result = await session.execute(select(Tag).where(Tag.id.in_(tag_ids), Tag.user_id == user_id))
     tags = list(result.scalars().all())
     missing = set(tag_ids) - {tag.id for tag in tags}
     if missing:
@@ -51,20 +54,20 @@ _TYPE_TO_CATEGORY_KIND = {
 
 
 async def _ensure_category_matches_type(
-    session: AsyncSession, category_id: int | None, transaction_type: TransactionType
+    session: AsyncSession, category_id: int | None, transaction_type: TransactionType, user_id: int
 ) -> Category | None:
     """A category picked for an income transaction must itself be an income
     category (and likewise for expense) — otherwise the dashboard's spending
     breakdown, which only joins EXPENSE-typed rows, would silently misclassify
     the entry. Returns the fetched category (or None for category_id=None) so
     callers that also need the row itself — _build_splits, below — don't have
-    to fetch it a second time."""
+    to fetch it a second time. Ownership-checked, not just existence-checked
+    — a category that exists but belongs to another user is treated as not
+    found (404), the same way every other cross-reference in this file is."""
     if category_id is None:
         return None
     expected_kind = _TYPE_TO_CATEGORY_KIND.get(transaction_type)
-    category = await session.get(Category, category_id)
-    if category is None:
-        raise HTTPException(status_code=400, detail="Category not found")
+    category = await get_owned_or_404(session, Category, category_id, user_id, detail="Category not found")
     if expected_kind is not None and category.kind != expected_kind:
         raise HTTPException(
             status_code=400,
@@ -73,8 +76,16 @@ async def _ensure_category_matches_type(
     return category
 
 
+async def _ensure_account_owned(session: AsyncSession, account_id: int, user_id: int) -> None:
+    """Raises 404 if `account_id` doesn't exist or belongs to another user.
+    Used for both `account_id` and `transfer_account_id` — a transaction
+    (including its transfer destination) can only ever touch accounts the
+    caller owns."""
+    await get_owned_or_404(session, Account, account_id, user_id, detail="Account not found")
+
+
 async def _build_splits(
-    session: AsyncSession, splits: list[TransactionSplitInput], transaction_type: TransactionType
+    session: AsyncSession, splits: list[TransactionSplitInput], transaction_type: TransactionType, user_id: int
 ) -> list[TransactionSplit]:
     """A split's whole point is dividing one purchase's total across the
     *subcategories of one parent* (a hypermarket receipt: part groceries ->
@@ -84,11 +95,12 @@ async def _build_splits(
     falls apart. Each split may point at that parent category itself (an
     unspecified-subcategory line) or at any one of its direct children —
     enforced by requiring every split's own top-level ancestor
-    (parent_id, or its own id if it has none) to agree.
+    (parent_id, or its own id if it has none) to agree. Each split's
+    category is also ownership-checked via _ensure_category_matches_type.
     """
     top_level_ids: set[int] = set()
     for split in splits:
-        category = await _ensure_category_matches_type(session, split.category_id, transaction_type)
+        category = await _ensure_category_matches_type(session, split.category_id, transaction_type, user_id)
         assert category is not None  # split.category_id is required (not Optional) on the schema
         top_level_ids.add(category.parent_id if category.parent_id is not None else category.id)
     if len(top_level_ids) > 1:
@@ -114,9 +126,10 @@ async def list_transactions(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=200),
     session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ) -> TransactionPage:
-    stmt = select(Transaction).options(*_EAGER)
-    count_stmt = select(func.count()).select_from(Transaction)
+    stmt = scoped(select(Transaction), Transaction, current_user.id).options(*_EAGER)
+    count_stmt = scoped(select(func.count()).select_from(Transaction), Transaction, current_user.id)
 
     if year is not None:
         stmt = stmt.where(func.extract("year", Transaction.date) == year)
@@ -180,11 +193,14 @@ async def list_transactions(
 
 
 @router.get("/years", response_model=list[int])
-async def list_transaction_years(session: AsyncSession = Depends(get_session)) -> list[int]:
+async def list_transaction_years(
+    session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)
+) -> list[int]:
     """Full range of years to offer in the year picker — from the earliest
     transaction through the current year, so a gap year with no activity
     still shows up (as zero) instead of silently disappearing from the UI."""
-    bounds = await session.execute(select(func.min(Transaction.date), func.max(Transaction.date)))
+    stmt = scoped(select(func.min(Transaction.date), func.max(Transaction.date)), Transaction, current_user.id)
+    bounds = await session.execute(stmt)
     min_date, max_date = bounds.one()
     current_year = date_.today().year
     if min_date is None:
@@ -193,13 +209,20 @@ async def list_transaction_years(session: AsyncSession = Depends(get_session)) -
 
 
 @router.post("", response_model=TransactionRead, status_code=201)
-async def create_transaction(payload: TransactionCreate, session: AsyncSession = Depends(get_session)) -> Transaction:
-    await _ensure_category_matches_type(session, payload.category_id, payload.type)
+async def create_transaction(
+    payload: TransactionCreate,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+) -> Transaction:
+    await _ensure_account_owned(session, payload.account_id, current_user.id)
+    if payload.transfer_account_id is not None:
+        await _ensure_account_owned(session, payload.transfer_account_id, current_user.id)
+    await _ensure_category_matches_type(session, payload.category_id, payload.type, current_user.id)
     fields = payload.model_dump(exclude={"tag_ids", "splits"})
-    transaction = Transaction(**fields)
-    transaction.tags = await _resolve_tags(session, payload.tag_ids)
+    transaction = Transaction(**fields, user_id=current_user.id)
+    transaction.tags = await _resolve_tags(session, payload.tag_ids, current_user.id)
     if payload.splits:
-        transaction.splits = await _build_splits(session, payload.splits, payload.type)
+        transaction.splits = await _build_splits(session, payload.splits, payload.type, current_user.id)
     session.add(transaction)
     await session.commit()
     refreshed = await session.execute(
@@ -210,20 +233,25 @@ async def create_transaction(payload: TransactionCreate, session: AsyncSession =
 
 @router.post("/bulk", response_model=TransactionBulkCreateResult, status_code=201)
 async def bulk_create_transactions(
-    payload: TransactionBulkCreate, session: AsyncSession = Depends(get_session)
+    payload: TransactionBulkCreate,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ) -> TransactionBulkCreateResult:
     """CSV import lands here — see schemas.TransactionBulkCreate. All rows
-    are validated before any is added, so a bad row 400s the whole request
-    instead of leaving a half-imported statement behind."""
+    are validated before any is added, so a bad row 400s/404s the whole
+    request instead of leaving a half-imported statement behind."""
     for item in payload.items:
-        await _ensure_category_matches_type(session, item.category_id, item.type)
+        await _ensure_account_owned(session, item.account_id, current_user.id)
+        if item.transfer_account_id is not None:
+            await _ensure_account_owned(session, item.transfer_account_id, current_user.id)
+        await _ensure_category_matches_type(session, item.category_id, item.type, current_user.id)
 
     transactions = []
     for item in payload.items:
-        transaction = Transaction(**item.model_dump(exclude={"tag_ids", "splits"}))
-        transaction.tags = await _resolve_tags(session, item.tag_ids)
+        transaction = Transaction(**item.model_dump(exclude={"tag_ids", "splits"}), user_id=current_user.id)
+        transaction.tags = await _resolve_tags(session, item.tag_ids, current_user.id)
         if item.splits:
-            transaction.splits = await _build_splits(session, item.splits, item.type)
+            transaction.splits = await _build_splits(session, item.splits, item.type, current_user.id)
         transactions.append(transaction)
 
     session.add_all(transactions)
@@ -233,15 +261,21 @@ async def bulk_create_transactions(
 
 @router.patch("/{transaction_id}", response_model=TransactionRead)
 async def update_transaction(
-    transaction_id: int, payload: TransactionUpdate, session: AsyncSession = Depends(get_session)
+    transaction_id: int,
+    payload: TransactionUpdate,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ) -> Transaction:
     # Eager-loads tags and splits — assigning transaction.tags/splits below
     # would otherwise lazy-load the current collection first to diff
     # against, which async SQLAlchemy can't do outside an explicit await
     # (MissingGreenlet).
-    transaction = await session.get(
-        Transaction, transaction_id, options=[selectinload(Transaction.tags), selectinload(Transaction.splits)]
+    result = await session.execute(
+        scoped(select(Transaction), Transaction, current_user.id)
+        .where(Transaction.id == transaction_id)
+        .options(selectinload(Transaction.tags), selectinload(Transaction.splits))
     )
+    transaction = result.scalar_one_or_none()
     if transaction is None:
         raise HTTPException(status_code=404, detail="Transaction not found")
     updates = payload.model_dump(exclude_unset=True, exclude={"tag_ids", "splits"})
@@ -253,7 +287,12 @@ async def update_transaction(
     effective_account_id = updates.get("account_id", transaction.account_id)
     effective_transfer_account_id = updates.get("transfer_account_id", transaction.transfer_account_id)
     effective_amount = updates.get("amount", transaction.amount)
-    await _ensure_category_matches_type(session, effective_category_id, effective_type)
+
+    if "account_id" in updates:
+        await _ensure_account_owned(session, updates["account_id"], current_user.id)
+    if "transfer_account_id" in updates and updates["transfer_account_id"] is not None:
+        await _ensure_account_owned(session, updates["transfer_account_id"], current_user.id)
+    await _ensure_category_matches_type(session, effective_category_id, effective_type, current_user.id)
     violation = transfer_rule_violation(
         type=effective_type,
         account_id=effective_account_id,
@@ -289,9 +328,9 @@ async def update_transaction(
     for field, value in updates.items():
         setattr(transaction, field, value)
     if payload.tag_ids is not None:
-        transaction.tags = await _resolve_tags(session, payload.tag_ids)
+        transaction.tags = await _resolve_tags(session, payload.tag_ids, current_user.id)
     if payload.splits is not None:
-        transaction.splits = await _build_splits(session, payload.splits, effective_type)
+        transaction.splits = await _build_splits(session, payload.splits, effective_type, current_user.id)
     await session.commit()
     refreshed = await session.execute(
         select(Transaction).options(*_EAGER).where(Transaction.id == transaction_id)
@@ -300,9 +339,11 @@ async def update_transaction(
 
 
 @router.delete("/{transaction_id}", status_code=204)
-async def delete_transaction(transaction_id: int, session: AsyncSession = Depends(get_session)) -> None:
-    transaction = await session.get(Transaction, transaction_id)
-    if transaction is None:
-        raise HTTPException(status_code=404, detail="Transaction not found")
+async def delete_transaction(
+    transaction_id: int,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+) -> None:
+    transaction = await get_owned_or_404(session, Transaction, transaction_id, current_user.id, detail="Transaction not found")
     await session.delete(transaction)
     await session.commit()

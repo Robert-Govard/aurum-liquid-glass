@@ -13,7 +13,7 @@ from decimal import Decimal
 
 from httpx import AsyncClient
 
-from tests.helpers import money, txn_payload as _txn
+from tests.helpers import auth_headers, money, register_user, txn_payload as _txn
 
 
 async def test_bulk_create_transactions(client: AsyncClient, account_id, categories):
@@ -673,3 +673,133 @@ async def test_delete_transaction_cascades_its_splits(client: AsyncClient, accou
     # category filter would still find a (now-orphaned) match.
     resp = await client.get("/transactions", params={"category_id": sweets})
     assert resp.json()["total"] == 0
+
+
+async def test_user_a_cannot_see_user_bs_transaction(client, account_id):
+    a_txn = (await client.post("/transactions", json=_txn(account_id))).json()
+
+    b_tokens = await register_user(client, "txnb@example.com")
+    b_account = (
+        await client.post(
+            "/accounts",
+            json={"name": "B's", "type": "checking", "currency": "USD"},
+            headers=auth_headers(b_tokens["access_token"]),
+        )
+    ).json()
+    b_txn = (
+        await client.post(
+            "/transactions", json=_txn(b_account["id"]), headers=auth_headers(b_tokens["access_token"])
+        )
+    ).json()
+
+    a_list = (await client.get("/transactions")).json()["items"]
+    assert [t["id"] for t in a_list] == [a_txn["id"]]
+
+    b_list = (await client.get("/transactions", headers=auth_headers(b_tokens["access_token"]))).json()["items"]
+    assert [t["id"] for t in b_list] == [b_txn["id"]]
+
+
+async def test_user_a_cannot_update_or_delete_user_bs_transaction(client):
+    b_tokens = await register_user(client, "txnb2@example.com")
+    b_account = (
+        await client.post(
+            "/accounts",
+            json={"name": "B's", "type": "checking", "currency": "USD"},
+            headers=auth_headers(b_tokens["access_token"]),
+        )
+    ).json()
+    b_txn = (
+        await client.post(
+            "/transactions", json=_txn(b_account["id"]), headers=auth_headers(b_tokens["access_token"])
+        )
+    ).json()
+
+    assert (await client.patch(f"/transactions/{b_txn['id']}", json={"amount": "1.00"})).status_code == 404
+    assert (await client.delete(f"/transactions/{b_txn['id']}")).status_code == 404
+
+
+async def test_cannot_create_a_transaction_against_another_users_account(client):
+    b_tokens = await register_user(client, "txnb3@example.com")
+    b_account = (
+        await client.post(
+            "/accounts",
+            json={"name": "B's", "type": "checking", "currency": "USD"},
+            headers=auth_headers(b_tokens["access_token"]),
+        )
+    ).json()
+
+    resp = await client.post("/transactions", json=_txn(b_account["id"]))
+    assert resp.status_code == 404
+
+
+async def test_cannot_create_a_transfer_to_another_users_account(client, account_id):
+    b_tokens = await register_user(client, "txnb4@example.com")
+    b_account = (
+        await client.post(
+            "/accounts",
+            json={"name": "B's", "type": "checking", "currency": "USD"},
+            headers=auth_headers(b_tokens["access_token"]),
+        )
+    ).json()
+
+    resp = await client.post(
+        "/transactions",
+        json=_txn(account_id, type="transfer", category_id=None, transfer_account_id=b_account["id"]),
+    )
+    assert resp.status_code == 404
+
+
+async def test_cannot_create_a_transaction_against_another_users_category(client, account_id):
+    b_tokens = await register_user(client, "txnb5@example.com")
+    b_categories = (await client.get("/categories", headers=auth_headers(b_tokens["access_token"]))).json()
+    b_groceries = next(c["id"] for c in b_categories if c["name"] == "Groceries")
+
+    resp = await client.post("/transactions", json=_txn(account_id, category_id=b_groceries))
+    assert resp.status_code == 404
+
+
+async def test_cannot_attach_another_users_tag(client, account_id):
+    b_tokens = await register_user(client, "txnb6@example.com")
+    b_tag = (
+        await client.post("/tags", json={"name": "b-only"}, headers=auth_headers(b_tokens["access_token"]))
+    ).json()
+
+    resp = await client.post("/transactions", json=_txn(account_id, tag_ids=[b_tag["id"]]))
+    assert resp.status_code == 400
+
+
+async def test_cannot_split_a_transaction_into_another_users_category(client, account_id, categories):
+    b_tokens = await register_user(client, "txnb7@example.com")
+    b_categories = (await client.get("/categories", headers=auth_headers(b_tokens["access_token"]))).json()
+    b_groceries = next(c["id"] for c in b_categories if c["name"] == "Groceries")
+    a_groceries = categories["Groceries"]["id"]
+
+    resp = await client.post(
+        "/transactions",
+        json=_txn(
+            account_id,
+            amount="20.00",
+            category_id=None,
+            splits=[
+                {"category_id": a_groceries, "amount": "10.00"},
+                {"category_id": b_groceries, "amount": "10.00"},
+            ],
+        ),
+    )
+    assert resp.status_code == 404
+
+
+async def test_cannot_update_a_transaction_to_reference_another_users_account(client, account_id):
+    a_txn = (await client.post("/transactions", json=_txn(account_id))).json()
+
+    b_tokens = await register_user(client, "txnb8@example.com")
+    b_account = (
+        await client.post(
+            "/accounts",
+            json={"name": "B's", "type": "checking", "currency": "USD"},
+            headers=auth_headers(b_tokens["access_token"]),
+        )
+    ).json()
+
+    resp = await client.patch(f"/transactions/{a_txn['id']}", json={"account_id": b_account["id"]})
+    assert resp.status_code == 404
