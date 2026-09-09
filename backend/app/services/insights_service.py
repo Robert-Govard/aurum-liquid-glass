@@ -172,9 +172,17 @@ async def get_financial_alerts(session: AsyncSession, user_id: int) -> AlertsRes
     # budget_service.get_budget_status is now scoped by user_id (Task 8 of
     # the multi-tenant plan) — threaded through here so this cross-service
     # call doesn't blow up with a missing-argument TypeError. get_or_create_app_settings
-    # above is likewise now scoped by user_id (Task 11). get_net_worth_summary
-    # (used above for the net-worth/risky-allocation signals) remains an
-    # instance-wide read until Part 2/3 of that plan converts it too.
+    # above is likewise now scoped by user_id (Task 11). Four of the five
+    # alert signals in this function remain instance-wide (unscoped by
+    # user) until Part 3 of that plan converts them too:
+    #   - _negative_cash_flow_streak(session) above — reads all
+    #     transactions across all users
+    #   - the net-worth-decline check above, via get_net_worth_summary
+    #   - the risky-allocation check above, also via get_net_worth_summary
+    #   - _idle_cash_account_count(session, ...) below — reads all
+    #     accounts/transactions across all users
+    # Only this budget-exceeded check and the settings thresholds above
+    # are properly scoped to the calling user today.
     budget_status = await get_budget_status(session, today.year, today.month, user_id)
     over_budget_count = sum(1 for item in budget_status.items if item.is_over_budget)
     if over_budget_count > 0:
