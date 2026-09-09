@@ -54,6 +54,32 @@ async def test_bulk_create_is_all_or_nothing(client: AsyncClient, account_id, ca
     assert listed.json()["total"] == 0
 
 
+async def test_bulk_create_rejects_another_users_account(client: AsyncClient, account_id, categories):
+    groceries = categories["Groceries"]["id"]
+    b_tokens = await register_user(client, "txnb9@example.com")
+    b_account = (
+        await client.post(
+            "/accounts",
+            json={"name": "B's", "type": "checking", "currency": "USD"},
+            headers=auth_headers(b_tokens["access_token"]),
+        )
+    ).json()
+
+    resp = await client.post(
+        "/transactions/bulk",
+        json={
+            "items": [
+                _txn(account_id, category_id=groceries, description="good row"),
+                _txn(b_account["id"], category_id=groceries, description="row against B's account"),
+            ]
+        },
+    )
+    assert resp.status_code == 404
+
+    listed = await client.get("/transactions")
+    assert listed.json()["total"] == 0
+
+
 async def test_create_expense_rejects_income_category(client: AsyncClient, account_id, categories):
     income_category = categories["Salary"]
     resp = await client.post(
