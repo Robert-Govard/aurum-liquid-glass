@@ -53,6 +53,7 @@ from app.schemas.crypto import (
     CryptoTransactionUpdate,
 )
 from app.services.settings_service import get_or_create_app_settings
+from app.services.scoped import get_owned_or_404, scoped
 
 # Same 8-hue, colorblind-safe categorical set app/db/seed.py assigns default
 # categories from — reused here (cycling by creation order) so portfolio tab
@@ -244,36 +245,36 @@ def _portfolio_to_read(portfolio: CryptoPortfolio) -> CryptoPortfolioRead:
     return CryptoPortfolioRead.model_validate(portfolio)
 
 
-async def list_portfolios(session: AsyncSession, include_archived: bool) -> list[CryptoPortfolioRead]:
-    stmt = select(CryptoPortfolio).order_by(CryptoPortfolio.id)
+async def list_portfolios(session: AsyncSession, user_id: int, include_archived: bool) -> list[CryptoPortfolioRead]:
+    stmt = scoped(select(CryptoPortfolio), CryptoPortfolio, user_id).order_by(CryptoPortfolio.id)
     if not include_archived:
         stmt = stmt.where(CryptoPortfolio.is_archived.is_(False))
     portfolios = (await session.execute(stmt)).scalars().all()
     return [_portfolio_to_read(p) for p in portfolios]
 
 
-async def get_or_create_default_portfolio(session: AsyncSession) -> CryptoPortfolio:
+async def get_or_create_default_portfolio(session: AsyncSession, user_id: int) -> CryptoPortfolio:
     """The portfolio a new holding lands in when the caller doesn't specify
-    one (see CryptoHoldingCreate.portfolio_id) — the earliest-created
+    one (see CryptoHoldingCreate.portfolio_id) — this user's earliest-created
     portfolio, auto-created the first time it's needed. Same self-healing
     "create on first use" shape as seed_default_app_settings: a portfolio can
     later be deleted once empty (see delete_portfolio), so this can't just
-    assume row id=1 always exists."""
+    assume any particular row always exists."""
     existing = (
-        await session.execute(select(CryptoPortfolio).order_by(CryptoPortfolio.id).limit(1))
+        await session.execute(scoped(select(CryptoPortfolio), CryptoPortfolio, user_id).order_by(CryptoPortfolio.id).limit(1))
     ).scalar_one_or_none()
     if existing is not None:
         return existing
-    portfolio = CryptoPortfolio(name="Main Portfolio", color=PORTFOLIO_PALETTE[0])
+    portfolio = CryptoPortfolio(name="Main Portfolio", color=PORTFOLIO_PALETTE[0], user_id=user_id)
     session.add(portfolio)
     await session.flush()
     return portfolio
 
 
-async def create_portfolio(session: AsyncSession, payload: CryptoPortfolioCreate) -> CryptoPortfolioRead:
-    count = (await session.execute(select(CryptoPortfolio.id))).scalars().all()
+async def create_portfolio(session: AsyncSession, payload: CryptoPortfolioCreate, user_id: int) -> CryptoPortfolioRead:
+    count = (await session.execute(scoped(select(CryptoPortfolio.id), CryptoPortfolio, user_id))).scalars().all()
     color = PORTFOLIO_PALETTE[len(count) % len(PORTFOLIO_PALETTE)]
-    portfolio = CryptoPortfolio(name=payload.name, color=color)
+    portfolio = CryptoPortfolio(name=payload.name, color=color, user_id=user_id)
     session.add(portfolio)
     await session.commit()
     await session.refresh(portfolio)
@@ -281,11 +282,9 @@ async def create_portfolio(session: AsyncSession, payload: CryptoPortfolioCreate
 
 
 async def update_portfolio(
-    session: AsyncSession, portfolio_id: int, payload: CryptoPortfolioUpdate
+    session: AsyncSession, portfolio_id: int, payload: CryptoPortfolioUpdate, user_id: int
 ) -> CryptoPortfolioRead:
-    portfolio = await session.get(CryptoPortfolio, portfolio_id)
-    if portfolio is None:
-        raise HTTPException(status_code=404, detail="Crypto portfolio not found")
+    portfolio = await get_owned_or_404(session, CryptoPortfolio, portfolio_id, user_id, detail="Crypto portfolio not found")
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(portfolio, field, value)
     await session.commit()
@@ -293,10 +292,8 @@ async def update_portfolio(
     return _portfolio_to_read(portfolio)
 
 
-async def delete_portfolio(session: AsyncSession, portfolio_id: int) -> None:
-    portfolio = await session.get(CryptoPortfolio, portfolio_id)
-    if portfolio is None:
-        raise HTTPException(status_code=404, detail="Crypto portfolio not found")
+async def delete_portfolio(session: AsyncSession, portfolio_id: int, user_id: int) -> None:
+    portfolio = await get_owned_or_404(session, CryptoPortfolio, portfolio_id, user_id, detail="Crypto portfolio not found")
     has_holding = (
         await session.execute(select(CryptoHolding.asset_id).where(CryptoHolding.portfolio_id == portfolio_id).limit(1))
     ).first()

@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_session
+from app.api.deps import get_current_user, get_session
+from app.models.user import User
 from app.schemas.crypto import (
     CryptoHistoryResponse,
     CryptoHoldingCreate,
@@ -38,28 +39,39 @@ router = APIRouter(prefix="/crypto", tags=["crypto"])
 
 @router.get("/portfolios", response_model=list[CryptoPortfolioRead])
 async def read_portfolios(
-    include_archived: bool = False, session: AsyncSession = Depends(get_session)
+    include_archived: bool = False,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ) -> list[CryptoPortfolioRead]:
-    return await list_portfolios(session, include_archived)
+    return await list_portfolios(session, current_user.id, include_archived)
 
 
 @router.post("/portfolios", response_model=CryptoPortfolioRead, status_code=201)
 async def create_portfolio_route(
-    payload: CryptoPortfolioCreate, session: AsyncSession = Depends(get_session)
+    payload: CryptoPortfolioCreate,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ) -> CryptoPortfolioRead:
-    return await create_portfolio(session, payload)
+    return await create_portfolio(session, payload, current_user.id)
 
 
 @router.patch("/portfolios/{portfolio_id}", response_model=CryptoPortfolioRead)
 async def update_portfolio_route(
-    portfolio_id: int, payload: CryptoPortfolioUpdate, session: AsyncSession = Depends(get_session)
+    portfolio_id: int,
+    payload: CryptoPortfolioUpdate,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ) -> CryptoPortfolioRead:
-    return await update_portfolio(session, portfolio_id, payload)
+    return await update_portfolio(session, portfolio_id, payload, current_user.id)
 
 
 @router.delete("/portfolios/{portfolio_id}", status_code=204)
-async def delete_portfolio_route(portfolio_id: int, session: AsyncSession = Depends(get_session)) -> None:
-    await delete_portfolio(session, portfolio_id)
+async def delete_portfolio_route(
+    portfolio_id: int,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+) -> None:
+    await delete_portfolio(session, portfolio_id, current_user.id)
 
 
 @router.get("/holdings", response_model=CryptoSyncResult)
