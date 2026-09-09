@@ -35,6 +35,7 @@ from app.schemas.net_worth import (
     RiskLevelItem,
     RiskLevelSummary,
 )
+from app.services.scoped import scoped
 
 CASH_ACCOUNT_TYPES = {AccountType.CHECKING, AccountType.SAVINGS, AccountType.CASH, AccountType.INVESTMENT}
 
@@ -91,14 +92,23 @@ def _daily_series(events: list[tuple[date_, Decimal]], start: date_, end: date_)
     return points
 
 
-async def _cash_cumulative_events(session: AsyncSession) -> list[tuple[date_, Decimal]]:
-    accounts_result = await session.execute(select(Account.id, Account.type))
+async def _cash_cumulative_events(session: AsyncSession, user_id: int) -> list[tuple[date_, Decimal]]:
+    accounts_result = await session.execute(scoped(select(Account.id, Account.type), Account, user_id))
     cash_account_ids = {acc_id for acc_id, acc_type in accounts_result.all() if acc_type in CASH_ACCOUNT_TYPES}
 
     txns_result = await session.execute(
-        select(Transaction.date, Transaction.type, Transaction.amount, Transaction.account_id, Transaction.transfer_account_id)
+        scoped(
+            select(Transaction.date, Transaction.type, Transaction.amount, Transaction.account_id, Transaction.transfer_account_id),
+            Transaction,
+            user_id,
+        )
     )
 
+    # transfer_account_id is read from an already-user_id-scoped Transaction row,
+    # and Part 2A's write-time enforcement guarantees transfer_account_id always
+    # refers to one of THIS SAME user's own accounts — so checking
+    # `transfer_account_id in cash_account_ids` (itself computed from a scoped
+    # Account query) never needs its own extra filter.
     delta_by_date: dict[date_, Decimal] = defaultdict(Decimal)
     for tx_date, tx_type, amount, account_id, transfer_account_id in txns_result.all():
         if tx_type == TransactionType.INCOME and account_id in cash_account_ids:
@@ -120,15 +130,23 @@ async def _cash_cumulative_events(session: AsyncSession) -> list[tuple[date_, De
 
 
 async def _asset_events_and_class_totals(
-    session: AsyncSession,
+    session: AsyncSession, user_id: int
 ) -> tuple[list[tuple[date_, Decimal]], dict[AssetClass, Decimal], dict[int, Decimal]]:
-    asset_class_result = await session.execute(select(Asset.id, Asset.asset_class))
+    asset_class_result = await session.execute(scoped(select(Asset.id, Asset.asset_class), Asset, user_id))
     asset_class_map = dict(asset_class_result.all())
 
+    # asset_class_map's keys are already scoped to this user's own assets
+    # (query above) — the valuations query below joins against those ids
+    # rather than re-filtering AssetValuation directly, since a valuation
+    # row's own ownership always matches its parent asset's (enforced at
+    # write time, see routes/assets.py/crypto_service.py's Part 2B). If
+    # asset_class_map is empty (user has zero assets), `.in_([])` is a valid,
+    # always-false SQL condition (returns no rows) — matches the function's
+    # pre-existing behavior for a fresh database with zero assets.
     valuations_result = await session.execute(
-        select(AssetValuation.asset_id, AssetValuation.as_of_date, AssetValuation.value).order_by(
-            AssetValuation.as_of_date
-        )
+        select(AssetValuation.asset_id, AssetValuation.as_of_date, AssetValuation.value)
+        .where(AssetValuation.asset_id.in_(asset_class_map.keys()))
+        .order_by(AssetValuation.as_of_date)
     )
     rows = valuations_result.all()
 
@@ -148,12 +166,16 @@ async def _asset_events_and_class_totals(
     return events, class_totals, current_by_asset
 
 
-async def _capital_role_summary(session: AsyncSession, current_by_asset: dict[int, Decimal]) -> list[CapitalRoleSummary]:
+async def _capital_role_summary(
+    session: AsyncSession, current_by_asset: dict[int, Decimal], user_id: int
+) -> list[CapitalRoleSummary]:
     """Cross-cuts the same assets by how the user tagged them (income /
     neutral / drain) instead of by asset class — always all three roles,
     even at zero, so the block reads as a fixed scale rather than a list
     that shuffles as assets are added."""
-    roles_result = await session.execute(select(Asset.id, Asset.capital_role, Asset.monthly_cash_flow))
+    roles_result = await session.execute(
+        scoped(select(Asset.id, Asset.capital_role, Asset.monthly_cash_flow), Asset, user_id)
+    )
 
     totals_value: dict[CapitalRole, Decimal] = defaultdict(Decimal)
     totals_flow: dict[CapitalRole, Decimal] = defaultdict(Decimal)
@@ -177,7 +199,7 @@ async def _capital_role_summary(session: AsyncSession, current_by_asset: dict[in
 
 
 async def _risk_level_summary(
-    session: AsyncSession, current_by_asset: dict[int, Decimal], cash_today: Decimal
+    session: AsyncSession, current_by_asset: dict[int, Decimal], cash_today: Decimal, user_id: int
 ) -> list[RiskLevelSummary]:
     """Cross-cuts Cash + assets by user-tagged risk of loss — unlike
     capital_roles, Cash participates here: it's the zero-risk anchor an
@@ -186,7 +208,7 @@ async def _risk_level_summary(
     same reasoning as capital_roles. Each tier's item list *is* its
     diversification view — a tier that's one holding at 100% is
     concentrated, several even-sized holdings aren't, no separate index."""
-    assets_result = await session.execute(select(Asset.id, Asset.name, Asset.risk_level))
+    assets_result = await session.execute(scoped(select(Asset.id, Asset.name, Asset.risk_level), Asset, user_id))
     asset_rows = assets_result.all()
 
     totals: dict[RiskLevel, Decimal] = defaultdict(Decimal)
@@ -236,11 +258,11 @@ def _resolve_start_date(range_key: str, cash_events: list[tuple[date_, Decimal]]
     return min(all_dates) if all_dates else today
 
 
-async def get_net_worth_summary(session: AsyncSession, range_key: str) -> NetWorthSummary:
+async def get_net_worth_summary(session: AsyncSession, range_key: str, user_id: int) -> NetWorthSummary:
     today = date_.today()
-    cash_events = await _cash_cumulative_events(session)
-    asset_events, class_totals, current_by_asset = await _asset_events_and_class_totals(session)
-    capital_roles = await _capital_role_summary(session, current_by_asset)
+    cash_events = await _cash_cumulative_events(session, user_id)
+    asset_events, class_totals, current_by_asset = await _asset_events_and_class_totals(session, user_id)
+    capital_roles = await _capital_role_summary(session, current_by_asset, user_id)
 
     start = _resolve_start_date(range_key, cash_events, asset_events, today)
 
@@ -257,7 +279,7 @@ async def get_net_worth_summary(session: AsyncSession, range_key: str) -> NetWor
 
     # cash_events entries are already cumulative — the last one *is* today's total.
     cash_today = cash_events[-1][1] if cash_events else Decimal("0")
-    risk_levels = await _risk_level_summary(session, current_by_asset, cash_today)
+    risk_levels = await _risk_level_summary(session, current_by_asset, cash_today, user_id)
 
     total = cash_today + sum(class_totals.values(), Decimal("0"))
 
