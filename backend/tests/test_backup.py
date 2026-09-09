@@ -4,10 +4,14 @@ and tags (many-to-many) surviving a round trip.
 """
 from httpx import AsyncClient
 
-from tests.helpers import txn_payload as _txn
+from tests.helpers import promote_current_user_to_admin, txn_payload as _txn
 
 
-async def test_backup_roundtrip_preserves_subcategories_and_tags(client: AsyncClient, account_id, categories):
+async def test_backup_roundtrip_preserves_subcategories_and_tags(
+    client: AsyncClient, account_id, categories, test_sessionmaker
+):
+    await promote_current_user_to_admin(test_sessionmaker)
+
     parent = await client.post("/categories", json={"name": "Custom Parent", "kind": "expense", "color": "#e34948"})
     parent_id = parent.json()["id"]
     child = await client.post(
@@ -33,7 +37,11 @@ async def test_backup_roundtrip_preserves_subcategories_and_tags(client: AsyncCl
     assert [t["id"] for t in refetched_txn["tags"]] == [tag]
 
 
-async def test_backup_import_rejects_transaction_with_unknown_tag_id(client: AsyncClient, account_id, categories):
+async def test_backup_import_rejects_transaction_with_unknown_tag_id(
+    client: AsyncClient, account_id, categories, test_sessionmaker
+):
+    await promote_current_user_to_admin(test_sessionmaker)
+
     export_resp = await client.get("/backup/export")
     payload = export_resp.json()
 
@@ -64,7 +72,11 @@ async def test_backup_import_rejects_transaction_with_unknown_tag_id(client: Asy
     assert resp.status_code == 400
 
 
-async def test_backup_roundtrip_preserves_transaction_splits(client: AsyncClient, account_id, categories):
+async def test_backup_roundtrip_preserves_transaction_splits(
+    client: AsyncClient, account_id, categories, test_sessionmaker
+):
+    await promote_current_user_to_admin(test_sessionmaker)
+
     groceries = categories["Groceries"]["id"]
     sweets = (
         await client.post("/categories", json={"name": "Sweets", "kind": "expense", "color": "#7a869a", "parent_id": groceries})

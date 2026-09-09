@@ -36,3 +36,18 @@ def auth_headers(token: str) -> dict:
     """Pass as `headers=auth_headers(token)` on one httpx call to act as a
     different user than the client fixture's default, for that call only."""
     return {"Authorization": f"Bearer {token}"}
+
+
+async def promote_current_user_to_admin(test_sessionmaker) -> None:
+    """Promotes the `client` fixture's auto-registered default test user
+    to admin, for tests against admin-gated routes that don't care about
+    testing the gate itself — just need to get past it. Assumes the
+    `client` fixture's default registration email (see conftest.py's
+    `client` fixture — currently "test@example.com")."""
+    from sqlalchemy import update
+
+    from app.models.user import User
+
+    async with test_sessionmaker() as session:
+        await session.execute(update(User).where(User.email == "test@example.com").values(is_admin=True))
+        await session.commit()
