@@ -76,3 +76,39 @@ async def test_category_spending_report_counts_a_subcategorys_split_share(client
 
     child_report = (await client.get("/reports/category-spending", params={"category_id": sweets})).json()
     assert money(child_report["total_amount"]) == Decimal("30.00")
+
+
+async def test_category_spending_report_404s_for_another_users_category(client: AsyncClient, categories):
+    from tests.helpers import auth_headers, register_user
+
+    b_tokens = await register_user(client, "reportb@example.com")
+    b_categories = (await client.get("/categories", headers=auth_headers(b_tokens["access_token"]))).json()
+    b_groceries = next(c["id"] for c in b_categories if c["name"] == "Groceries")
+
+    resp = await client.get("/reports/category-spending", params={"category_id": b_groceries})
+    assert resp.status_code == 404
+
+
+async def test_category_ranking_report_excludes_another_users_transactions(client: AsyncClient, account_id, categories):
+    from tests.helpers import auth_headers, register_user
+
+    b_tokens = await register_user(client, "reportb2@example.com")
+    b_account = (
+        await client.post("/accounts", json={"name": "B Wallet", "type": "cash", "currency": "USD"},
+                          headers=auth_headers(b_tokens["access_token"]))
+    ).json()
+    b_categories = (await client.get("/categories", headers=auth_headers(b_tokens["access_token"]))).json()
+    b_groceries = next(c["id"] for c in b_categories if c["name"] == "Groceries")
+    await client.post(
+        "/transactions",
+        json=_txn(b_account["id"], amount="9999.00", category_id=b_groceries, date="2026-08-01"),
+        headers=auth_headers(b_tokens["access_token"]),
+    )
+
+    await client.post(
+        "/transactions", json=_txn(account_id, amount="50.00", category_id=categories["Groceries"]["id"], date="2026-08-01")
+    )
+
+    resp = await client.get("/reports/category-ranking", params={"kind": "expense"})
+    groceries_row = next(item for item in resp.json()["items"] if item["name"] == "Groceries")
+    assert money(groceries_row["amount"]) == Decimal("50.00")  # not 10049.00

@@ -8,7 +8,6 @@ from collections import defaultdict
 from datetime import date as date_
 from decimal import Decimal
 
-from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,6 +22,7 @@ from app.schemas.reports import (
     CategorySpendingReport,
 )
 from app.services.category_rollup import rollup_spending_by_top_level_category
+from app.services.scoped import get_owned_or_404, scoped
 
 
 def _next_month(year: int, month: int) -> tuple[int, int]:
@@ -30,11 +30,9 @@ def _next_month(year: int, month: int) -> tuple[int, int]:
 
 
 async def get_category_spending_report(
-    session: AsyncSession, category_id: int, start_date: date_ | None, end_date: date_ | None
+    session: AsyncSession, category_id: int, start_date: date_ | None, end_date: date_ | None, user_id: int
 ) -> CategorySpendingReport:
-    category = await session.get(Category, category_id)
-    if category is None:
-        raise HTTPException(status_code=404, detail="Category not found")
+    category = await get_owned_or_404(session, Category, category_id, user_id, detail="Category not found")
 
     # A top-level category's own report folds in its subcategories' spending
     # too (same rollup as the Dashboard breakdown); a subcategory picked
@@ -42,20 +40,28 @@ async def get_category_spending_report(
     category_ids: list[int] = [category_id]
     if category.parent_id is None:
         child_ids = (
-            await session.execute(select(Category.id).where(Category.parent_id == category_id))
+            await session.execute(
+                scoped(select(Category.id), Category, user_id).where(Category.parent_id == category_id)
+            )
         ).scalars().all()
         category_ids.extend(child_ids)
 
     # Plain transactions filed directly under one of these categories, plus
     # split lines that assign part of a transaction to one of them — same
     # two sources category_rollup.py unions for the Dashboard/ranking report.
-    plain_stmt = select(Transaction.id, Transaction.date, Transaction.amount).where(
-        Transaction.category_id.in_(category_ids)
-    )
+    # category_ids is already scoped to this user's own categories (via
+    # get_owned_or_404 above and the scoped child-lookup above), so no
+    # separate user_id filter is needed on Transaction.category_id.in_(...)
+    # itself — but the split_stmt still joins Transaction to double-check
+    # the parent transaction is this user's, since a split's own row has no
+    # user_id column of its own (see Global Constraints).
+    plain_stmt = scoped(
+        select(Transaction.id, Transaction.date, Transaction.amount), Transaction, user_id
+    ).where(Transaction.category_id.in_(category_ids))
     split_stmt = (
         select(TransactionSplit.transaction_id, Transaction.date, TransactionSplit.amount)
         .join(Transaction, Transaction.id == TransactionSplit.transaction_id)
-        .where(TransactionSplit.category_id.in_(category_ids))
+        .where(TransactionSplit.category_id.in_(category_ids), Transaction.user_id == user_id)
     )
     if start_date:
         plain_stmt = plain_stmt.where(Transaction.date >= start_date)
@@ -127,7 +133,7 @@ _KIND_TO_TRANSACTION_TYPE = {
 
 
 async def get_category_ranking_report(
-    session: AsyncSession, kind: CategoryKind, start_date: date_ | None, end_date: date_ | None
+    session: AsyncSession, kind: CategoryKind, start_date: date_ | None, end_date: date_ | None, user_id: int
 ) -> CategoryRankingReport:
     """All categories of one kind, ranked by total spent/earned over an
     arbitrary period — "which category costs the most" across the whole
@@ -140,7 +146,7 @@ async def get_category_ranking_report(
     # unions plain transactions with split lines the same way the Dashboard
     # breakdown does.
     rows = await rollup_spending_by_top_level_category(
-        session, transaction_type=_KIND_TO_TRANSACTION_TYPE[kind], start_date=start_date, end_date=end_date
+        session, transaction_type=_KIND_TO_TRANSACTION_TYPE[kind], start_date=start_date, end_date=end_date, user_id=user_id
     )
     total_amount = sum((row.amount for row in rows), Decimal("0"))
 
