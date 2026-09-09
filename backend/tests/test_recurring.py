@@ -28,6 +28,14 @@ async def test_post_recurring_creates_a_transaction(client, account_id):
     assert resp.status_code == 201
     assert resp.json()["last_posted_date"] is not None
 
+    # The posted transaction must actually be visible to the user who owns
+    # the recurring template — it's created with no user_id, it silently
+    # vanishes from /transactions while still moving the account's balance.
+    listed = (await client.get("/transactions")).json()["items"]
+    today = resp.json()["last_posted_date"]
+    matching = [t for t in listed if t["description"] == "Streaming subscription" and t["date"] == today]
+    assert len(matching) == 1
+
 
 async def test_user_a_cannot_see_user_bs_recurring(client, account_id):
     b_tokens = await register_user(client, "recb@example.com")

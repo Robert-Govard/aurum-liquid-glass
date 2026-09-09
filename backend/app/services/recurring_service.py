@@ -164,6 +164,7 @@ async def post_recurring(session: AsyncSession, recurring_id: int, user_id: int)
             merchant=recurring.merchant,
             notes=recurring.notes,
             date=today,
+            user_id=user_id,
         )
     )
     recurring.last_posted_date = today
