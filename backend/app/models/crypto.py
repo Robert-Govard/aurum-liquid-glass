@@ -44,6 +44,8 @@ class CryptoPortfolio(Base, TimestampMixin):
     color: Mapped[str | None] = mapped_column(String(7), nullable=True)
     is_archived: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
+
     holdings: Mapped[list["CryptoHolding"]] = relationship(back_populates="portfolio")
 
 
@@ -91,6 +93,8 @@ class CryptoHolding(Base, TimestampMixin):
     price_change_30d: Mapped[Numeric | None] = mapped_column(Numeric(10, 4), nullable=True)
     price_change_1y: Mapped[Numeric | None] = mapped_column(Numeric(10, 4), nullable=True)
 
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
+
     asset: Mapped["Asset"] = relationship()
     portfolio: Mapped["CryptoPortfolio"] = relationship(back_populates="holdings")
     transactions: Mapped[list["CryptoTransaction"]] = relationship(
@@ -120,18 +124,26 @@ class CryptoTransaction(Base, TimestampMixin):
     date: Mapped[date_] = mapped_column(Date, nullable=False)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
+
     holding: Mapped["CryptoHolding"] = relationship(back_populates="transactions")
 
 
 class CryptoSyncState(Base):
-    """Singleton row (id=1, same get-or-create pattern as AppSettings) — the
-    single global timestamp of the last successful CoinGecko price refresh.
-    One timestamp for every holding, not one per holding: a refresh always
-    re-prices every tracked coin in a single batched request (see
-    services/crypto_service.py), so there's only ever one "last synced"
-    moment to track."""
+    """One row per user — the timestamp of that user's last successful
+    CoinGecko price refresh, covering every coin *they* track. A refresh
+    always re-prices all of one user's tracked coins in a single batched
+    request (see services/crypto_service.py), so there's only ever one
+    "last synced" moment to track per user — but it must be per-user, not
+    a single shared singleton the way it was before this table had a
+    user_id: two different users' coin sets are refreshed independently,
+    and a shared timestamp would let one user's tab visit silently
+    suppress another user's actual refresh."""
 
     __tablename__ = "crypto_sync_state"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=True, unique=True
+    )
     last_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
