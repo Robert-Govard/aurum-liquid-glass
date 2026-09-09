@@ -332,7 +332,7 @@ async def get_or_create_sync_state(session: AsyncSession) -> CryptoSyncState:
     return state
 
 
-async def _upsert_valuation(session: AsyncSession, asset_id: int, value: Decimal, as_of_date: date_) -> None:
+async def _upsert_valuation(session: AsyncSession, asset_id: int, value: Decimal, as_of_date: date_, user_id: int | None = None) -> None:
     """Same upsert-by-date pattern as routes/assets.py's POST
     /assets/{id}/valuations — re-syncing the same day updates that day's
     value instead of erroring. Still needed even though quantity/price
@@ -340,7 +340,7 @@ async def _upsert_valuation(session: AsyncSession, asset_id: int, value: Decimal
     table, not CryptoHolding, for a coin's value history."""
     upsert_stmt = (
         pg_insert(AssetValuation)
-        .values(asset_id=asset_id, value=value, as_of_date=as_of_date)
+        .values(asset_id=asset_id, value=value, as_of_date=as_of_date, user_id=user_id)
         .on_conflict_do_update(
             index_elements=[AssetValuation.asset_id, AssetValuation.as_of_date],
             set_={"value": value},
@@ -408,7 +408,7 @@ async def refresh_prices(session: AsyncSession, *, force: bool, portfolio_id: in
     )
 
 
-async def create_holding(session: AsyncSession, payload: CryptoHoldingCreate) -> CryptoHoldingRead:
+async def create_holding(session: AsyncSession, payload: CryptoHoldingCreate, user_id: int) -> CryptoHoldingRead:
     settings = await get_or_create_app_settings(session)
 
     if payload.portfolio_id is not None:
@@ -428,6 +428,7 @@ async def create_holding(session: AsyncSession, payload: CryptoHoldingCreate) ->
         # this app's own risk-level copy, which names crypto as the textbook
         # HIGH example (see lib/i18n.ts's netWorth.riskLevelFormHint.high).
         risk_level=RiskLevel.HIGH,
+        user_id=user_id,
     )
     session.add(asset)
     await session.flush()
@@ -449,6 +450,7 @@ async def create_holding(session: AsyncSession, payload: CryptoHoldingCreate) ->
             price_per_unit=payload.price_per_unit,
             date=payload.date,
             note=payload.note,
+            user_id=user_id,
         )
     )
     await session.flush()
@@ -467,7 +469,7 @@ async def create_holding(session: AsyncSession, payload: CryptoHoldingCreate) ->
             holding.price_change_7d = point.change_7d
             holding.price_change_30d = point.change_30d
             holding.price_change_1y = point.change_1y
-            await _upsert_valuation(session, asset.id, payload.quantity * point.price, date_.today())
+            await _upsert_valuation(session, asset.id, payload.quantity * point.price, date_.today(), user_id)
         # This counts as a real sync — bump the shared timestamp so the next
         # GET /crypto/holdings doesn't immediately re-fetch every holding
         # again a moment later (see refresh_prices' 24h window).

@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_session
+from app.api.deps import get_current_user, get_session
+from app.models.user import User
 from app.schemas.crypto import (
     CryptoHistoryResponse,
     CryptoHoldingCreate,
@@ -84,9 +85,11 @@ async def refresh_holdings(
 
 @router.post("/holdings", response_model=CryptoHoldingRead, status_code=201)
 async def create_holding_route(
-    payload: CryptoHoldingCreate, session: AsyncSession = Depends(get_session)
+    payload: CryptoHoldingCreate,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ) -> CryptoHoldingRead:
-    return await create_holding(session, payload)
+    return await create_holding(session, payload, current_user.id)
 
 
 @router.post("/holdings/{asset_id}/transactions", response_model=CryptoHoldingRead, status_code=201)

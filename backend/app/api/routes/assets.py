@@ -4,9 +4,11 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.api.deps import get_session
+from app.api.deps import get_current_user, get_session
 from app.models.asset import Asset, AssetValuation
+from app.models.user import User
 from app.schemas.asset import AssetCreate, AssetRead, AssetUpdate, AssetValuationCreate, AssetValuationRead
+from app.services.scoped import get_owned_or_404, scoped
 
 router = APIRouter(prefix="/assets", tags=["assets"])
 
@@ -30,13 +32,20 @@ def _to_read(asset: Asset) -> AssetRead:
 
 
 @router.get("", response_model=list[AssetRead])
-async def list_assets(session: AsyncSession = Depends(get_session)) -> list[AssetRead]:
-    result = await session.execute(select(Asset).options(*_EAGER).order_by(Asset.name))
+async def list_assets(
+    session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)
+) -> list[AssetRead]:
+    stmt = scoped(select(Asset), Asset, current_user.id).options(*_EAGER).order_by(Asset.name)
+    result = await session.execute(stmt)
     return [_to_read(asset) for asset in result.scalars().all()]
 
 
 @router.post("", response_model=AssetRead, status_code=201)
-async def create_asset(payload: AssetCreate, session: AsyncSession = Depends(get_session)) -> AssetRead:
+async def create_asset(
+    payload: AssetCreate,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+) -> AssetRead:
     asset = Asset(
         name=payload.name,
         asset_class=payload.asset_class,
@@ -45,10 +54,15 @@ async def create_asset(payload: AssetCreate, session: AsyncSession = Depends(get
         capital_role=payload.capital_role,
         monthly_cash_flow=payload.monthly_cash_flow,
         risk_level=payload.risk_level,
+        user_id=current_user.id,
     )
     session.add(asset)
     await session.flush()
-    session.add(AssetValuation(asset_id=asset.id, value=payload.value, as_of_date=payload.as_of_date))
+    session.add(
+        AssetValuation(
+            asset_id=asset.id, value=payload.value, as_of_date=payload.as_of_date, user_id=current_user.id
+        )
+    )
     await session.commit()
 
     refreshed = await session.execute(select(Asset).options(*_EAGER).where(Asset.id == asset.id))
@@ -56,8 +70,15 @@ async def create_asset(payload: AssetCreate, session: AsyncSession = Depends(get
 
 
 @router.patch("/{asset_id}", response_model=AssetRead)
-async def update_asset(asset_id: int, payload: AssetUpdate, session: AsyncSession = Depends(get_session)) -> AssetRead:
-    result = await session.execute(select(Asset).options(*_EAGER).where(Asset.id == asset_id))
+async def update_asset(
+    asset_id: int,
+    payload: AssetUpdate,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+) -> AssetRead:
+    result = await session.execute(
+        scoped(select(Asset), Asset, current_user.id).where(Asset.id == asset_id).options(*_EAGER)
+    )
     asset = result.scalar_one_or_none()
     if asset is None:
         raise HTTPException(status_code=404, detail="Asset not found")
@@ -70,18 +91,19 @@ async def update_asset(asset_id: int, payload: AssetUpdate, session: AsyncSessio
 
 @router.post("/{asset_id}/valuations", response_model=AssetRead)
 async def add_asset_valuation(
-    asset_id: int, payload: AssetValuationCreate, session: AsyncSession = Depends(get_session)
+    asset_id: int,
+    payload: AssetValuationCreate,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ) -> AssetRead:
     """Records (or corrects) an asset's value as of a date. Re-submitting the
     same date updates that day's value instead of erroring, so users can fix
     a typo without needing a separate edit flow."""
-    asset = await session.get(Asset, asset_id)
-    if asset is None:
-        raise HTTPException(status_code=404, detail="Asset not found")
+    await get_owned_or_404(session, Asset, asset_id, current_user.id, detail="Asset not found")
 
     upsert_stmt = (
         pg_insert(AssetValuation)
-        .values(asset_id=asset_id, value=payload.value, as_of_date=payload.as_of_date)
+        .values(asset_id=asset_id, value=payload.value, as_of_date=payload.as_of_date, user_id=current_user.id)
         .on_conflict_do_update(
             index_elements=[AssetValuation.asset_id, AssetValuation.as_of_date],
             set_={"value": payload.value},
@@ -95,10 +117,12 @@ async def add_asset_valuation(
 
 
 @router.get("/{asset_id}/valuations", response_model=list[AssetValuationRead])
-async def list_asset_valuations(asset_id: int, session: AsyncSession = Depends(get_session)) -> list[AssetValuation]:
-    asset = await session.get(Asset, asset_id)
-    if asset is None:
-        raise HTTPException(status_code=404, detail="Asset not found")
+async def list_asset_valuations(
+    asset_id: int,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+) -> list[AssetValuation]:
+    await get_owned_or_404(session, Asset, asset_id, current_user.id, detail="Asset not found")
     result = await session.execute(
         select(AssetValuation).where(AssetValuation.asset_id == asset_id).order_by(AssetValuation.as_of_date)
     )
@@ -106,9 +130,11 @@ async def list_asset_valuations(asset_id: int, session: AsyncSession = Depends(g
 
 
 @router.delete("/{asset_id}", status_code=204)
-async def delete_asset(asset_id: int, session: AsyncSession = Depends(get_session)) -> None:
-    asset = await session.get(Asset, asset_id)
-    if asset is None:
-        raise HTTPException(status_code=404, detail="Asset not found")
+async def delete_asset(
+    asset_id: int,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+) -> None:
+    asset = await get_owned_or_404(session, Asset, asset_id, current_user.id, detail="Asset not found")
     await session.delete(asset)
     await session.commit()
