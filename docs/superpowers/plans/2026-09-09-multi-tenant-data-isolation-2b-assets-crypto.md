@@ -345,7 +345,7 @@ Expected: FAIL — assets aren't scoped yet.
 Modify `backend/app/api/routes/assets.py` — replace the whole file:
 
 ```python
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -428,8 +428,6 @@ async def update_asset(
     )
     asset = result.scalar_one_or_none()
     if asset is None:
-        from fastapi import HTTPException
-
         raise HTTPException(status_code=404, detail="Asset not found")
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(asset, field, value)
@@ -488,13 +486,6 @@ async def delete_asset(
     await session.delete(asset)
     await session.commit()
 ```
-
-(`update_asset` imports `HTTPException` locally rather than at module
-level purely because the rest of the file no longer needs it at
-module scope after switching to `get_owned_or_404` everywhere else —
-if you find that awkward, move `from fastapi import HTTPException` up
-to the top-level import line instead; either is fine, just don't leave
-two different import styles for the same name in one file.)
 
 - [ ] **Step 4: Run tests to verify they pass**
 

@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_session
+from app.api.deps import get_current_user, get_session
+from app.models.user import User
 from app.schemas.crypto import (
     CryptoHistoryResponse,
     CryptoHoldingCreate,
@@ -38,82 +39,111 @@ router = APIRouter(prefix="/crypto", tags=["crypto"])
 
 @router.get("/portfolios", response_model=list[CryptoPortfolioRead])
 async def read_portfolios(
-    include_archived: bool = False, session: AsyncSession = Depends(get_session)
+    include_archived: bool = False,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ) -> list[CryptoPortfolioRead]:
-    return await list_portfolios(session, include_archived)
+    return await list_portfolios(session, current_user.id, include_archived)
 
 
 @router.post("/portfolios", response_model=CryptoPortfolioRead, status_code=201)
 async def create_portfolio_route(
-    payload: CryptoPortfolioCreate, session: AsyncSession = Depends(get_session)
+    payload: CryptoPortfolioCreate,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ) -> CryptoPortfolioRead:
-    return await create_portfolio(session, payload)
+    return await create_portfolio(session, payload, current_user.id)
 
 
 @router.patch("/portfolios/{portfolio_id}", response_model=CryptoPortfolioRead)
 async def update_portfolio_route(
-    portfolio_id: int, payload: CryptoPortfolioUpdate, session: AsyncSession = Depends(get_session)
+    portfolio_id: int,
+    payload: CryptoPortfolioUpdate,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ) -> CryptoPortfolioRead:
-    return await update_portfolio(session, portfolio_id, payload)
+    return await update_portfolio(session, portfolio_id, payload, current_user.id)
 
 
 @router.delete("/portfolios/{portfolio_id}", status_code=204)
-async def delete_portfolio_route(portfolio_id: int, session: AsyncSession = Depends(get_session)) -> None:
-    await delete_portfolio(session, portfolio_id)
+async def delete_portfolio_route(
+    portfolio_id: int,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+) -> None:
+    await delete_portfolio(session, portfolio_id, current_user.id)
 
 
 @router.get("/holdings", response_model=CryptoSyncResult)
 async def read_holdings(
-    portfolio_id: int | None = None, session: AsyncSession = Depends(get_session)
+    portfolio_id: int | None = None,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ) -> CryptoSyncResult:
     """Opening the Crypto tab lands here — this is also where the lazy
     once-a-day auto-refresh happens (see services/crypto_service.py):
     prices only actually get re-fetched from CoinGecko if 24h have passed
     since the last sync, otherwise this just reads the current cache."""
-    return await refresh_prices(session, force=False, portfolio_id=portfolio_id)
+    return await refresh_prices(session, current_user.id, force=False, portfolio_id=portfolio_id)
 
 
 @router.post("/refresh", response_model=CryptoSyncResult)
 async def refresh_holdings(
-    portfolio_id: int | None = None, session: AsyncSession = Depends(get_session)
+    portfolio_id: int | None = None,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ) -> CryptoSyncResult:
     """The "Refresh prices" button — always hits CoinGecko regardless of
     the once-a-day window."""
-    return await refresh_prices(session, force=True, portfolio_id=portfolio_id)
+    return await refresh_prices(session, current_user.id, force=True, portfolio_id=portfolio_id)
 
 
 @router.post("/holdings", response_model=CryptoHoldingRead, status_code=201)
 async def create_holding_route(
-    payload: CryptoHoldingCreate, session: AsyncSession = Depends(get_session)
+    payload: CryptoHoldingCreate,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ) -> CryptoHoldingRead:
-    return await create_holding(session, payload)
+    return await create_holding(session, payload, current_user.id)
 
 
 @router.post("/holdings/{asset_id}/transactions", response_model=CryptoHoldingRead, status_code=201)
 async def add_transaction_route(
-    asset_id: int, payload: CryptoTransactionCreate, session: AsyncSession = Depends(get_session)
+    asset_id: int,
+    payload: CryptoTransactionCreate,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ) -> CryptoHoldingRead:
     """Buy more of, or sell some of, a coin already being tracked."""
-    return await add_transaction(session, asset_id, payload)
+    return await add_transaction(session, asset_id, payload, current_user.id)
 
 
 @router.get("/holdings/{asset_id}/transactions", response_model=list[CryptoTransactionRead])
 async def list_transactions_route(
-    asset_id: int, session: AsyncSession = Depends(get_session)
+    asset_id: int,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ) -> list[CryptoTransactionRead]:
-    return await list_transactions(session, asset_id)
+    return await list_transactions(session, asset_id, current_user.id)
 
 
 @router.patch("/transactions/{transaction_id}", response_model=CryptoHoldingRead)
 async def update_transaction_route(
-    transaction_id: int, payload: CryptoTransactionUpdate, session: AsyncSession = Depends(get_session)
+    transaction_id: int,
+    payload: CryptoTransactionUpdate,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ) -> CryptoHoldingRead:
-    return await update_transaction(session, transaction_id, payload)
+    return await update_transaction(session, transaction_id, payload, current_user.id)
 
 
 @router.delete("/transactions/{transaction_id}", status_code=204)
-async def delete_transaction_route(transaction_id: int, session: AsyncSession = Depends(get_session)) -> None:
-    await delete_transaction(session, transaction_id)
+async def delete_transaction_route(
+    transaction_id: int,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+) -> None:
+    await delete_transaction(session, transaction_id, current_user.id)
 
 
 @router.get("/search", response_model=list[CryptoSearchResult])
@@ -130,15 +160,18 @@ async def read_crypto_history(
     range: str = Query(default="30d", pattern=_HISTORY_RANGE_PATTERN),
     portfolio_id: int | None = None,
     session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ) -> CryptoHistoryResponse:
-    return await get_crypto_history(session, range, portfolio_id)
+    return await get_crypto_history(session, range, current_user.id, portfolio_id)
 
 
 @router.get("/performance/90d", response_model=CryptoPerformanceResponse)
 async def read_90d_performance(
-    portfolio_id: int | None = None, session: AsyncSession = Depends(get_session)
+    portfolio_id: int | None = None,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ) -> CryptoPerformanceResponse:
     """Backs the Best/Worst Performer stat only while the 90d range is
     selected — see get_90d_performance's docstring for why this is a
     separate on-demand call instead of a cached field like 7d/30d/1y."""
-    return await get_90d_performance(session, portfolio_id)
+    return await get_90d_performance(session, current_user.id, portfolio_id)
