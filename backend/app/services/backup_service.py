@@ -1,13 +1,16 @@
-"""Full-database JSON backup & restore.
+"""Self-service, per-user JSON backup & restore.
 
-Exports every row (accounts, categories, transactions, assets, asset
-valuations) as one portable JSON document a user can download from the
-browser and re-upload later. Restore fully REPLACES existing data — it's a
-snapshot restore, not a merge — so the whole operation runs in one DB
-transaction: a corrupt or incompatible file is rejected (referential checks
-run first, before any row is touched), and any failure during the swap rolls
-the database back to exactly where it was, so a bad file never leaves the
-app half-restored.
+Exports every row belonging to the CALLING user only (accounts, categories,
+transactions, assets, asset valuations, and the rest of that user's own
+data) as one portable JSON document they can download from the browser and
+re-upload later. Restore fully REPLACES that same user's own existing
+data — it's a snapshot restore, not a merge — but never touches any other
+user's rows: every query and delete is scoped by user_id, so a user's own
+backup/restore cycle can never read, corrupt, or wipe another user's
+account. The whole restore runs in one DB transaction: a corrupt or
+incompatible file is rejected (referential checks run first, before any row
+is touched), and any failure during the swap rolls the database back to
+exactly where it was, so a bad file never leaves the app half-restored.
 """
 from datetime import datetime, timezone
 
@@ -204,11 +207,29 @@ async def _reset_sequence(session: AsyncSession, table: str) -> None:
     lowering the sequence below those would make their very next ordinary
     INSERT collide with their own existing data. `MAX(id)` here naturally
     reflects both those other rows AND whatever this restore just inserted,
-    so this is correct regardless of how the two interleave. `table` is
-    always one of our hardcoded table names, never user input, so it's
-    safe to interpolate directly into the SQL."""
+    so this is correct regardless of how the two interleave.
+
+    `MAX(id)` alone is still not enough, though: it only sees COMMITTED
+    rows. If another user's normal INSERT has already called `nextval()`
+    (reserving id N) but that transaction hasn't committed yet while this
+    restore runs concurrently, `MAX(id)` can't see the reserved-but-
+    uncommitted N, so `setval` could set the sequence below N — and once
+    that other transaction commits, a THIRD insert (from anyone) could then
+    collide with it. `pg_sequence_last_value` closes this gap: it reflects
+    the sequence's own internal counter, i.e. every `nextval()` call ever
+    made against it, committed or not, so it can never be fooled by an
+    in-flight transaction. Taking `GREATEST` of the two makes the sequence
+    monotonic no matter which source currently leads. `table` is always one
+    of our hardcoded table names, never user input, so it's safe to
+    interpolate directly into the SQL."""
     await session.execute(
-        text(f"SELECT setval(pg_get_serial_sequence('{table}', 'id'), COALESCE((SELECT MAX(id) FROM {table}), 1))")
+        text(
+            f"SELECT setval(pg_get_serial_sequence('{table}', 'id'), "
+            "GREATEST("
+            f"COALESCE((SELECT MAX(id) FROM {table}), 1), "
+            f"COALESCE(pg_sequence_last_value(pg_get_serial_sequence('{table}', 'id')), 1)"
+            "))"
+        )
     )
 
 
