@@ -1,152 +1,97 @@
 import { useSyncExternalStore } from "react";
 
 /**
- * Client-side mirror of the HTTP Basic Auth credentials Aurum's own login
- * screen collects (see components/auth/LoginScreen.tsx), so every fetch can
- * attach `Authorization` itself instead of relying on the browser's own
- * unstyled Basic Auth prompt. nginx's `auth_basic` (see
- * frontend/docker-entrypoint.d/20-basic-auth.sh) is still the actual gate —
- * this only avoids ever triggering that native prompt, by never letting an
- * unauthenticated request happen without us attaching the header ourselves.
+ * Client-side JWT session state — replaces the earlier HTTP-Basic-Auth-
+ * in-JavaScript implementation this file used to hold, now that the
+ * backend has real per-user accounts (see backend/app/api/routes/auth.py).
  *
- * Two storage tiers, chosen at login time by the "remember me" checkbox:
- *  - sessionStorage (default): gone as soon as the tab closes.
- *  - localStorage, with an explicit expiry stamped into the stored value:
- *    survives closing the tab/browser, but only for REMEMBER_DAYS — an
- *    unbounded "stay logged in forever" is too much for a finance app.
- * The expiry is only checked when this module loads (i.e. on page load/
- * reload) — a tab left open across the expiry moment without reloading
- * keeps working until its next reload or a 401 forces a fresh check.
+ * Two tokens, two lifetimes, two storage tiers:
+ *  - The access token (15 min) lives ONLY in memory (a module-level
+ *    variable) — never written to any storage, so it can't be read back
+ *    by an XSS payload that persists across page loads, and it naturally
+ *    disappears on refresh/close.
+ *  - The refresh token (30 days) is what actually keeps a session alive
+ *    across reloads — stored in localStorage, the standard place for a
+ *    long-lived JWT refresh token in a web app. There's no "remember me"
+ *    checkbox because there's nothing to opt into: signing in always
+ *    persists, the same way it does on basically every JWT-based site.
+ * On every successful refresh the backend ROTATES the refresh token (see
+ * services/auth_service.py's atomic UPDATE ... WHERE revoked_at IS NULL) —
+ * the old one stops working the moment a new one is issued, so the stored
+ * refresh token is overwritten on every use, not just the access token,
+ * or the next refresh attempt would fail even though the session should
+ * still be alive.
  */
-const SESSION_KEY = "aurum:basicAuth";
-const REMEMBER_KEY = "aurum:basicAuth:remember";
-const REMEMBER_DAYS = 30;
-const REMEMBER_MS = REMEMBER_DAYS * 24 * 60 * 60 * 1000;
+const REFRESH_TOKEN_KEY = "aurum:refreshToken";
+const USER_CACHE_KEY = "aurum:user";
 
-interface RememberedEntry {
-  header: string;
-  expiresAt: number; // epoch ms
+export interface CurrentUser {
+  id: number;
+  email: string;
+  is_admin: boolean;
+  is_active: boolean;
 }
 
-function readRemembered(): string | null {
+interface AuthState {
+  accessToken: string | null;
+  user: CurrentUser | null;
+}
+
+interface TokenPair {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+}
+
+function readCachedUser(): CurrentUser | null {
   try {
-    const raw = localStorage.getItem(REMEMBER_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<RememberedEntry>;
-    if (typeof parsed.header !== "string" || typeof parsed.expiresAt !== "number") {
-      localStorage.removeItem(REMEMBER_KEY);
-      return null;
-    }
-    if (Date.now() >= parsed.expiresAt) {
-      localStorage.removeItem(REMEMBER_KEY);
-      return null;
-    }
-    return parsed.header;
+    const raw = localStorage.getItem(USER_CACHE_KEY);
+    return raw ? (JSON.parse(raw) as CurrentUser) : null;
   } catch {
     return null;
   }
 }
 
-function readSession(): string | null {
+function readRefreshToken(): string | null {
   try {
-    return sessionStorage.getItem(SESSION_KEY);
+    return localStorage.getItem(REFRESH_TOKEN_KEY);
   } catch {
     return null;
   }
 }
 
-function readStored(): string | null {
-  return readRemembered() ?? readSession();
-}
-
-let currentHeader: string | null = readStored();
+// The access token always starts null, even if a refresh token is stored
+// from a previous session — LoginGate's bootstrap() call (see below) is
+// what turns a stored refresh token back into a live access token + user
+// on page load. The cached user is read eagerly so a returning user's
+// email can render immediately once bootstrap succeeds, without an extra
+// flash of "no user yet".
+let state: AuthState = { accessToken: null, user: readCachedUser() };
 const listeners = new Set<() => void>();
 
 function notify(): void {
   listeners.forEach((listener) => listener());
 }
 
-export function getAuthHeader(): string | null {
-  return currentHeader;
-}
-
-// btoa() only handles Latin1 — the UI is bilingual RU/EN, so a Cyrillic
-// password has to survive this, not just ASCII ones.
-function encodeUtf8Base64(value: string): string {
-  const bytes = new TextEncoder().encode(value);
-  let binary = "";
-  bytes.forEach((byte) => {
-    binary += String.fromCharCode(byte);
-  });
-  return btoa(binary);
-}
-
-export function buildBasicAuthHeader(username: string, password: string): string {
-  return `Basic ${encodeUtf8Base64(`${username}:${password}`)}`;
-}
-
-export function setCredentials(username: string, password: string, remember: boolean): void {
-  currentHeader = buildBasicAuthHeader(username, password);
+function setState(next: Partial<AuthState>): void {
+  state = { ...state, ...next };
   try {
-    if (remember) {
-      const entry: RememberedEntry = { header: currentHeader, expiresAt: Date.now() + REMEMBER_MS };
-      localStorage.setItem(REMEMBER_KEY, JSON.stringify(entry));
-      sessionStorage.removeItem(SESSION_KEY);
-    } else {
-      sessionStorage.setItem(SESSION_KEY, currentHeader);
-      localStorage.removeItem(REMEMBER_KEY);
-    }
+    if (state.user) localStorage.setItem(USER_CACHE_KEY, JSON.stringify(state.user));
+    else localStorage.removeItem(USER_CACHE_KEY);
   } catch {
-    // storage unavailable (private browsing, storage disabled) — the header
-    // still works for the rest of this tab's life via the in-memory
-    // variable above, it just won't survive a refresh.
+    // storage unavailable (private browsing, storage disabled) — the
+    // session still works for this tab's life via the in-memory state, it
+    // just won't survive a reload.
   }
   notify();
 }
 
-/** Called on any 401 response (see api/client.ts) so a revoked or changed
- * password falls back to the login screen instead of every request failing
- * silently forever. */
-export function clearCredentials(): void {
-  if (currentHeader === null) return;
-  currentHeader = null;
-  try {
-    sessionStorage.removeItem(SESSION_KEY);
-    localStorage.removeItem(REMEMBER_KEY);
-  } catch {
-    // ignore — nothing to clean up if storage was never usable
-  }
-  notify();
+export function getAccessToken(): string | null {
+  return state.accessToken;
 }
 
-export type CredentialCheck = "ok" | "unauthorized" | "unreachable";
-
-// A request with NO Authorization header at all, hitting an endpoint that
-// replies 401 + WWW-Authenticate: Basic, is exactly what makes some
-// browsers pop their own native Basic Auth dialog even for a plain
-// fetch() — the one thing this whole login screen exists to avoid. A
-// request that already carries *some* Authorization header, even a wrong
-// one, never triggers that. So LoginGate's "is auth even required?" probe
-// (called with header=null) uses this fixed placeholder instead of
-// omitting the header — it's guaranteed wrong, which is exactly what's
-// needed to tell "not configured" (200, header ignored) apart from
-// "configured, please log in" (401).
-const PROBE_HEADER = `Basic ${btoa("__aurum_probe__:__aurum_probe__")}`;
-
-/** Hits a lightweight, always-protected endpoint with the given header (or
- * none) to find out whether Basic Auth is required/satisfied. Used both to
- * skip the login screen entirely when this instance has no auth configured
- * (see LoginGate.tsx), and to validate a login attempt before saving it
- * (see LoginScreen.tsx). */
-export async function checkCredentials(header: string | null): Promise<CredentialCheck> {
-  try {
-    const response = await fetch("/api/accounts", {
-      headers: { Authorization: header ?? PROBE_HEADER },
-    });
-    return response.status === 401 ? "unauthorized" : "ok";
-  } catch {
-    return "unreachable";
-  }
+export function getCurrentUser(): CurrentUser | null {
+  return state.user;
 }
 
 function subscribe(listener: () => void): () => void {
@@ -154,6 +99,160 @@ function subscribe(listener: () => void): () => void {
   return () => listeners.delete(listener);
 }
 
-export function useAuthHeader(): string | null {
-  return useSyncExternalStore(subscribe, () => currentHeader);
+export function useAuthState(): AuthState {
+  return useSyncExternalStore(subscribe, () => state);
+}
+
+function storeTokenPair(pair: TokenPair): void {
+  try {
+    localStorage.setItem(REFRESH_TOKEN_KEY, pair.refresh_token);
+  } catch {
+    // ignore — the session just won't survive a reload this time
+  }
+  setState({ accessToken: pair.access_token });
+}
+
+async function fetchCurrentUser(accessToken: string): Promise<CurrentUser> {
+  const response = await fetch("/api/auth/me", { headers: { Authorization: `Bearer ${accessToken}` } });
+  if (!response.ok) throw new Error("Failed to load current user");
+  return (await response.json()) as CurrentUser;
+}
+
+export type AuthResult = "ok" | "invalid" | "email_taken" | "error" | "unreachable";
+
+export async function login(email: string, password: string): Promise<AuthResult> {
+  try {
+    const response = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    if (response.status === 401) return "invalid";
+    if (!response.ok) return "error";
+    const pair = (await response.json()) as TokenPair;
+    storeTokenPair(pair);
+    const user = await fetchCurrentUser(pair.access_token);
+    setState({ user });
+    return "ok";
+  } catch {
+    return "unreachable";
+  }
+}
+
+export async function register(email: string, password: string): Promise<AuthResult> {
+  try {
+    const response = await fetch("/api/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    if (response.status === 409) return "email_taken";
+    if (!response.ok) return "error";
+    const pair = (await response.json()) as TokenPair;
+    storeTokenPair(pair);
+    const user = await fetchCurrentUser(pair.access_token);
+    setState({ user });
+    return "ok";
+  } catch {
+    return "unreachable";
+  }
+}
+
+/** Clears the whole session locally — called on an explicit logout, or
+ * when a token refresh itself fails (invalid/expired/revoked refresh
+ * token), so LoginGate falls back to the auth screen instead of every
+ * subsequent request failing the same way forever. */
+export function clearSession(): void {
+  try {
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
+    localStorage.removeItem(USER_CACHE_KEY);
+  } catch {
+    // ignore — nothing to clean up if storage was never usable
+  }
+  setState({ accessToken: null, user: null });
+}
+
+export async function logout(): Promise<void> {
+  const refreshToken = readRefreshToken();
+  clearSession();
+  if (!refreshToken) return;
+  // Best-effort — the whole point of logging out is that the session
+  // stops working locally regardless of whether the server-side revoke
+  // call itself succeeds (e.g. the user is offline), so a failure here is
+  // silently ignored rather than blocking the logout the user just asked for.
+  try {
+    await fetch("/api/auth/logout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+  } catch {
+    // ignore
+  }
+}
+
+// Concurrent 401s (several API calls in flight at the moment the access
+// token expires) must not each fire their own refresh call — the refresh
+// token is single-use (rotated on every call, see the module docstring),
+// so a second concurrent refresh would send the same token the first one
+// already consumed and get rejected. Every caller within the same expiry
+// window shares this one in-flight promise instead.
+let refreshPromise: Promise<string | null> | null = null;
+
+/** Exchanges the stored refresh token for a fresh pair, updating BOTH
+ * stored tokens. Returns the new access token, or null if there was no
+ * refresh token to use, or the refresh call itself failed for a reason
+ * other than a network error (an invalid/expired/revoked refresh token),
+ * in which case the session is cleared — the caller should treat a null
+ * return as "the user is logged out now." A network-level failure (the
+ * `catch` below) does NOT clear the session, since that's not evidence
+ * the token itself is bad, just that this one attempt couldn't complete. */
+export async function refreshAccessToken(): Promise<string | null> {
+  if (refreshPromise) return refreshPromise;
+
+  refreshPromise = (async () => {
+    const refreshToken = readRefreshToken();
+    if (!refreshToken) return null;
+    try {
+      const response = await fetch("/api/auth/refresh", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      });
+      if (!response.ok) {
+        clearSession();
+        return null;
+      }
+      const pair = (await response.json()) as TokenPair;
+      storeTokenPair(pair);
+      return pair.access_token;
+    } catch {
+      return null;
+    }
+  })();
+
+  try {
+    return await refreshPromise;
+  } finally {
+    refreshPromise = null;
+  }
+}
+
+/** Called once by LoginGate on mount. Turns a stored refresh token (from
+ * a previous session, still present after a page reload) back into a live
+ * access token + user, so a returning user doesn't see the auth screen
+ * for even a moment. A missing or already-expired refresh token simply
+ * leaves the session logged-out, same as if this were never called. */
+export async function bootstrap(): Promise<void> {
+  if (!readRefreshToken() || state.accessToken) return;
+  const accessToken = await refreshAccessToken();
+  if (!accessToken) return; // refreshAccessToken() already cleared the session if the token was genuinely invalid
+  try {
+    const user = await fetchCurrentUser(accessToken);
+    setState({ user });
+  } catch {
+    // Access token came back fine but /auth/me itself failed (e.g. a
+    // transient network hiccup) — leave the token in place; the cached
+    // user from localStorage (if any) keeps the UI usable in the meantime.
+  }
 }

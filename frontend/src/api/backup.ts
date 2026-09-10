@@ -1,14 +1,18 @@
 import { api } from "@/api/client";
-import { getAuthHeader } from "@/lib/auth";
+import { getAccessToken } from "@/lib/auth";
 import { t } from "@/lib/i18n";
 
 export async function exportBackup(): Promise<void> {
   // Raw fetch (not api/client.ts's request()) — the response is a file
   // download, not JSON — so the Authorization header has to be attached
-  // here by hand too, same as every other request.
-  const authHeader = getAuthHeader();
+  // here by hand too, same as every other request. Uses the in-memory JWT
+  // access token directly (see lib/auth.ts) rather than a Basic-Auth
+  // header; unlike api/client.ts's request(), this raw fetch does not
+  // refresh-and-retry on a 401 — a rare edge case for an explicit,
+  // user-initiated export click, not worth the extra complexity here.
+  const accessToken = getAccessToken();
   const response = await fetch("/api/backup/export", {
-    headers: authHeader ? { Authorization: authHeader } : {},
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
   });
   if (!response.ok) {
     throw new Error(await response.text());
