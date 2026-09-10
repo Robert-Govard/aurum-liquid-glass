@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import type { QueryClient } from "@tanstack/react-query";
+import { getApiBase } from "@/lib/serverUrl";
 
 /**
  * Client-side JWT session state — replaces the earlier HTTP-Basic-Auth-
@@ -114,7 +115,7 @@ function storeTokenPair(pair: TokenPair): void {
 }
 
 async function fetchCurrentUser(accessToken: string): Promise<CurrentUser> {
-  const response = await fetch("/api/auth/me", { headers: { Authorization: `Bearer ${accessToken}` } });
+  const response = await fetch(`${getApiBase()}/auth/me`, { headers: { Authorization: `Bearer ${accessToken}` } });
   if (!response.ok) throw new Error("Failed to load current user");
   return (await response.json()) as CurrentUser;
 }
@@ -123,7 +124,7 @@ export type AuthResult = "ok" | "invalid" | "email_taken" | "error" | "unreachab
 
 export async function login(email: string, password: string): Promise<AuthResult> {
   try {
-    const response = await fetch("/api/auth/login", {
+    const response = await fetch(`${getApiBase()}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
@@ -142,7 +143,7 @@ export async function login(email: string, password: string): Promise<AuthResult
 
 export async function register(email: string, password: string): Promise<AuthResult> {
   try {
-    const response = await fetch("/api/auth/register", {
+    const response = await fetch(`${getApiBase()}/auth/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
@@ -190,7 +191,7 @@ export async function logout(): Promise<void> {
   // call itself succeeds (e.g. the user is offline), so a failure here is
   // silently ignored rather than blocking the logout the user just asked for.
   try {
-    await fetch("/api/auth/logout", {
+    await fetch(`${getApiBase()}/auth/logout`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refresh_token: refreshToken }),
@@ -243,7 +244,7 @@ export async function refreshAccessToken(): Promise<string | null> {
     const refreshToken = readRefreshToken();
     if (!refreshToken) return null;
     try {
-      const response = await fetch("/api/auth/refresh", {
+      const response = await fetch(`${getApiBase()}/auth/refresh`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ refresh_token: refreshToken }),

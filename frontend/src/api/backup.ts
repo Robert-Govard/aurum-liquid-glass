@@ -1,6 +1,7 @@
 import { api } from "@/api/client";
 import { getAccessToken, refreshAccessToken } from "@/lib/auth";
 import { t } from "@/lib/i18n";
+import { getApiBase } from "@/lib/serverUrl";
 
 export async function exportBackup(): Promise<void> {
   // Raw fetch (not api/client.ts's request()) — the response is a file
@@ -11,7 +12,7 @@ export async function exportBackup(): Promise<void> {
   // as api/client.ts's request() below, just implemented by hand since
   // request() itself can't be reused for a non-JSON file download.
   let accessToken = getAccessToken();
-  let response = await fetch("/api/backup/export", {
+  let response = await fetch(`${getApiBase()}/backup/export`, {
     headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
   });
   if (response.status === 401) {
@@ -24,7 +25,7 @@ export async function exportBackup(): Promise<void> {
     // left the session alone for a network failure).
     accessToken = await refreshAccessToken();
     if (accessToken) {
-      response = await fetch("/api/backup/export", {
+      response = await fetch(`${getApiBase()}/backup/export`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
     }

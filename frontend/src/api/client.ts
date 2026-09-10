@@ -1,6 +1,5 @@
 import { clearSession, getAccessToken, refreshAccessToken } from "@/lib/auth";
-
-const API_BASE = "/api";
+import { getApiBase } from "@/lib/serverUrl";
 
 export class ApiError extends Error {
   status: number;
@@ -11,7 +10,7 @@ export class ApiError extends Error {
 }
 
 function doFetch(path: string, init: RequestInit | undefined, accessToken: string | null): Promise<Response> {
-  return fetch(`${API_BASE}${path}`, {
+  return fetch(`${getApiBase()}${path}`, {
     headers: {
       "Content-Type": "application/json",
       ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
