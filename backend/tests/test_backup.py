@@ -114,3 +114,17 @@ async def test_backup_roundtrip_preserves_transaction_splits(
     splits_by_note = {s["note"]: s for s in refetched["splits"]}
     assert splits_by_note["candy and snacks"]["category_id"] == sweets
     assert refetched["category"] is None
+
+
+async def test_export_only_includes_the_callers_own_data(client: AsyncClient, account_id, categories):
+    from tests.helpers import auth_headers, register_user
+
+    b_tokens = await register_user(client, "backupb@example.com")
+    await client.post(
+        "/accounts", json={"name": "B Wallet", "type": "cash", "currency": "USD"},
+        headers=auth_headers(b_tokens["access_token"]),
+    )
+
+    payload = (await client.get("/backup/export")).json()
+    account_names = {a["name"] for a in payload["accounts"]}
+    assert "B Wallet" not in account_names

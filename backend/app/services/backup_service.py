@@ -45,26 +45,56 @@ from app.schemas.backup import (
     TransactionBackup,
     TransactionSplitBackup,
 )
+from app.services.scoped import scoped
+from app.services.settings_service import get_or_create_app_settings
 
 BACKUP_FORMAT_VERSION = 1
 
 
-async def build_backup(session: AsyncSession) -> BackupPayload:
-    accounts = (await session.execute(select(Account))).scalars().all()
-    categories = (await session.execute(select(Category))).scalars().all()
-    tags = (await session.execute(select(Tag))).scalars().all()
-    transactions = (await session.execute(select(Transaction).options(selectinload(Transaction.tags)))).scalars().all()
-    transaction_splits = (await session.execute(select(TransactionSplit))).scalars().all()
-    assets = (await session.execute(select(Asset))).scalars().all()
-    valuations = (await session.execute(select(AssetValuation))).scalars().all()
-    crypto_portfolios = (await session.execute(select(CryptoPortfolio))).scalars().all()
-    crypto_holdings = (await session.execute(select(CryptoHolding))).scalars().all()
-    crypto_transactions = (await session.execute(select(CryptoTransaction))).scalars().all()
-    budgets = (await session.execute(select(Budget))).scalars().all()
-    goals = (await session.execute(select(Goal))).scalars().all()
-    goal_contributions = (await session.execute(select(GoalContribution))).scalars().all()
-    recurring_transactions = (await session.execute(select(RecurringTransaction))).scalars().all()
-    app_settings = await session.get(AppSettings, 1)
+async def build_backup(session: AsyncSession, user_id: int) -> BackupPayload:
+    accounts = (await session.execute(scoped(select(Account), Account, user_id))).scalars().all()
+    categories = (await session.execute(scoped(select(Category), Category, user_id))).scalars().all()
+    tags = (await session.execute(scoped(select(Tag), Tag, user_id))).scalars().all()
+    transactions = (
+        await session.execute(
+            scoped(select(Transaction), Transaction, user_id).options(selectinload(Transaction.tags))
+        )
+    ).scalars().all()
+    # transaction_splits has no user_id column of its own (see
+    # models/transaction.py) — scoped via a join to its parent Transaction,
+    # same idiom used throughout this series wherever a child table lacks
+    # its own user_id (see services/category_rollup.py, reports_service.py).
+    transaction_splits = (
+        await session.execute(
+            select(TransactionSplit)
+            .join(Transaction, Transaction.id == TransactionSplit.transaction_id)
+            .where(Transaction.user_id == user_id)
+        )
+    ).scalars().all()
+    assets = (await session.execute(scoped(select(Asset), Asset, user_id))).scalars().all()
+    valuations = (await session.execute(scoped(select(AssetValuation), AssetValuation, user_id))).scalars().all()
+    crypto_portfolios = (
+        await session.execute(scoped(select(CryptoPortfolio), CryptoPortfolio, user_id))
+    ).scalars().all()
+    crypto_holdings = (
+        await session.execute(scoped(select(CryptoHolding), CryptoHolding, user_id))
+    ).scalars().all()
+    crypto_transactions = (
+        await session.execute(scoped(select(CryptoTransaction), CryptoTransaction, user_id))
+    ).scalars().all()
+    budgets = (await session.execute(scoped(select(Budget), Budget, user_id))).scalars().all()
+    goals = (await session.execute(scoped(select(Goal), Goal, user_id))).scalars().all()
+    # goal_contributions has no user_id column of its own — same
+    # join-through-parent idiom as transaction_splits above.
+    goal_contributions = (
+        await session.execute(
+            select(GoalContribution).join(Goal, Goal.id == GoalContribution.goal_id).where(Goal.user_id == user_id)
+        )
+    ).scalars().all()
+    recurring_transactions = (
+        await session.execute(scoped(select(RecurringTransaction), RecurringTransaction, user_id))
+    ).scalars().all()
+    app_settings = await get_or_create_app_settings(session, user_id)
 
     return BackupPayload(
         aurum_backup_version=BACKUP_FORMAT_VERSION,
@@ -89,7 +119,7 @@ async def build_backup(session: AsyncSession) -> BackupPayload:
         goals=[GoalBackup.model_validate(row) for row in goals],
         goal_contributions=[GoalContributionBackup.model_validate(row) for row in goal_contributions],
         recurring_transactions=[RecurringTransactionBackup.model_validate(row) for row in recurring_transactions],
-        app_settings=AppSettingsBackup.model_validate(app_settings) if app_settings else AppSettingsBackup(currency="USD"),
+        app_settings=AppSettingsBackup.model_validate(app_settings),
     )
 
 

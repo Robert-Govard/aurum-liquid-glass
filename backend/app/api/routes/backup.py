@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_admin, get_session
+from app.api.deps import get_current_admin, get_current_user, get_session
 from app.models.user import User
 from app.schemas.backup import BackupPayload
 from app.services.backup_service import build_backup, restore_backup
@@ -20,9 +20,9 @@ router = APIRouter(prefix="/backup", tags=["backup"])
 
 @router.get("/export", response_model=BackupPayload)
 async def export_backup(
-    session: AsyncSession = Depends(get_session), _admin: User = Depends(get_current_admin)
+    session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)
 ) -> BackupPayload:
-    return await build_backup(session)
+    return await build_backup(session, current_user.id)
 
 
 @router.post("/import")
