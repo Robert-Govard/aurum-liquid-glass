@@ -2,8 +2,11 @@ import { AlertThresholdsCard } from "@/components/settings/AlertThresholdsCard";
 import { BackupCard } from "@/components/settings/BackupCard";
 import { CurrencyCard } from "@/components/settings/CurrencyCard";
 import { PreferencesCard } from "@/components/settings/PreferencesCard";
+import { Button } from "@/components/ui/Button";
+import { Card, CardContent } from "@/components/ui/Card";
 import { useHealth } from "@/hooks/useHealth";
 import { t } from "@/lib/i18n";
+import { clearServerUrl, isNative } from "@/lib/serverUrl";
 
 export function SettingsPage() {
   // Purely informational — if /api/health hasn't answered yet (or is
@@ -17,6 +20,27 @@ export function SettingsPage() {
       <CurrencyCard />
       <AlertThresholdsCard />
       <BackupCard />
+      {isNative() && (
+        // Native-only: the web build always talks to its own same-origin
+        // backend (see lib/serverUrl.ts), so there is nothing to change
+        // there. No CardHeader/CardTitle here — mirrors PreferencesCard's
+        // headerless layout since there's no separate section label for
+        // this single action beyond the button text itself.
+        <Card>
+          <CardContent className="pt-4 sm:pt-5">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                if (window.confirm(t("settings.changeServerConfirm"))) {
+                  void clearServerUrl();
+                }
+              }}
+            >
+              {t("settings.changeServer")}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
       {health?.version && (
         <p className="text-center text-xs text-text-muted">
           {t("settings.version", { version: health.version })}

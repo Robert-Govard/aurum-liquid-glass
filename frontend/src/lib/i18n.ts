@@ -62,6 +62,15 @@ const ru = {
   "auth.errorUnreachable": "Не удалось подключиться к серверу. Проверьте соединение и попробуйте снова.",
   "topbar.logout": "Выйти",
 
+  "serverSetup.subtitle": "Подключение к серверу",
+  "serverSetup.urlLabel": "Адрес сервера",
+  "serverSetup.checking": "Проверка…",
+  "serverSetup.continueButton": "Продолжить",
+  "serverSetup.errorInvalidUrl": "Введите полный адрес, например https://aurum.example.com",
+  "serverSetup.errorUnreachable": "Не удалось подключиться к этому адресу. Проверьте, что сервер запущен и доступен.",
+  "settings.changeServer": "Сменить сервер",
+  "settings.changeServerConfirm": "Вы уверены? Приложение перезапустится и запросит новый адрес сервера.",
+
   "dashboard.errorLoading": "Не удалось загрузить данные дашборда. Проверьте, что backend запущен.",
   "dashboard.statRealIncomeLabel": "Реальный доход",
   "dashboard.statRealIncomeCaption": "зарплаты, возвраты",
@@ -562,6 +571,15 @@ const en: Record<keyof typeof ru, string> = {
   "auth.errorGeneric": "Something went wrong. Please try again.",
   "auth.errorUnreachable": "Couldn't reach the server. Check your connection and try again.",
   "topbar.logout": "Log out",
+
+  "serverSetup.subtitle": "Connect to your server",
+  "serverSetup.urlLabel": "Server address",
+  "serverSetup.checking": "Checking…",
+  "serverSetup.continueButton": "Continue",
+  "serverSetup.errorInvalidUrl": "Enter a full address, e.g. https://aurum.example.com",
+  "serverSetup.errorUnreachable": "Couldn't connect to that address. Check that the server is running and reachable.",
+  "settings.changeServer": "Change server",
+  "settings.changeServerConfirm": "Are you sure? The app will restart and ask for a new server address.",
 
   "dashboard.errorLoading": "Failed to load dashboard data. Check that the backend is running.",
   "dashboard.statRealIncomeLabel": "Real income",

@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter } from "react-router-dom";
 import App from "@/App";
 import { LoginGate } from "@/components/auth/LoginGate";
+import { ServerGate } from "@/components/auth/ServerGate";
 import { attachQueryClient } from "@/lib/auth";
 import "@/lib/theme";
 import "@/index.css";
@@ -27,9 +28,11 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <LoginGate>
-          <App />
-        </LoginGate>
+        <ServerGate>
+          <LoginGate>
+            <App />
+          </LoginGate>
+        </ServerGate>
       </BrowserRouter>
     </QueryClientProvider>
   </StrictMode>
