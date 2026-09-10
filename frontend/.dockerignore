@@ -12,3 +12,7 @@ dist
 .env.*
 !.env.example
 .DS_Store
+# Native Android project (~1.5MB) and source PNG assets (~400KB) — only
+# needed for `npx cap sync`/Android builds, never for the web Docker image.
+android
+assets

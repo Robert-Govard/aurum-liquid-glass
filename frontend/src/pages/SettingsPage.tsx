@@ -5,6 +5,7 @@ import { PreferencesCard } from "@/components/settings/PreferencesCard";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
 import { useHealth } from "@/hooks/useHealth";
+import { clearSession } from "@/lib/auth";
 import { t } from "@/lib/i18n";
 import { clearServerUrl, isNative } from "@/lib/serverUrl";
 
@@ -32,6 +33,12 @@ export function SettingsPage() {
               variant="secondary"
               onClick={() => {
                 if (window.confirm(t("settings.changeServerConfirm"))) {
+                  // Also end the current session — otherwise the OLD
+                  // server's refresh token stays in localStorage and gets
+                  // sent to whatever NEW host the user configures next
+                  // (lib/auth.ts's bootstrap() has no way to know that
+                  // token belongs to a different backend).
+                  clearSession();
                   void clearServerUrl();
                 }
               }}

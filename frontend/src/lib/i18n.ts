@@ -60,6 +60,7 @@ const ru = {
   "auth.errorEmailTaken": "Этот email уже зарегистрирован",
   "auth.errorGeneric": "Что-то пошло не так. Попробуйте ещё раз.",
   "auth.errorUnreachable": "Не удалось подключиться к серверу. Проверьте соединение и попробуйте снова.",
+  "auth.changeServer": "Сменить сервер",
   "topbar.logout": "Выйти",
 
   "serverSetup.subtitle": "Подключение к серверу",
@@ -570,6 +571,7 @@ const en: Record<keyof typeof ru, string> = {
   "auth.errorEmailTaken": "This email is already registered",
   "auth.errorGeneric": "Something went wrong. Please try again.",
   "auth.errorUnreachable": "Couldn't reach the server. Check your connection and try again.",
+  "auth.changeServer": "Change server",
   "topbar.logout": "Log out",
 
   "serverSetup.subtitle": "Connect to your server",

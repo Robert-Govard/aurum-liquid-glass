@@ -3,8 +3,9 @@ import { Logo } from "@/components/layout/Logo";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Input, Label } from "@/components/ui/Input";
-import { login, register, type AuthResult } from "@/lib/auth";
+import { clearSession, login, register, type AuthResult } from "@/lib/auth";
 import { useTranslation } from "@/lib/i18n";
+import { clearServerUrl, isNative } from "@/lib/serverUrl";
 
 type Mode = "login" | "register";
 type Status = "idle" | "submitting" | AuthResult;
@@ -99,6 +100,31 @@ export function AuthScreen() {
           >
             {t(mode === "login" ? "auth.switchToRegister" : "auth.switchToLogin")}
           </button>
+
+          {isNative() && (
+            // Native-only escape hatch: Settings (where "change server"
+            // normally lives) is only reachable after a successful login,
+            // but a self-hoster whose backend address changed (e.g. a home
+            // LAN IP) would otherwise be stuck failing to log in against
+            // the old, now-wrong address with no way back to
+            // ServerSetupScreen short of clearing app data. clearSession()
+            // is harmless/idempotent here — there is no live session yet
+            // at this screen — but is called anyway for the same reason
+            // as Settings' version: keep the "always clear both together"
+            // invariant so a stale token can never survive a server change.
+            <button
+              type="button"
+              onClick={() => {
+                if (window.confirm(t("settings.changeServerConfirm"))) {
+                  clearSession();
+                  void clearServerUrl();
+                }
+              }}
+              className="text-xs text-text-secondary underline-offset-2 hover:underline"
+            >
+              {t("auth.changeServer")}
+            </button>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -65,6 +65,10 @@ jobs:
       # locally before shipping a change.
       - run: npm run build
 
+  # Builds and uploads a debug APK for the native Android app on every PR
+  # and push to main. There's no Android SDK/JDK/Gradle available for local
+  # verification of this branch, so this job is the only way a native build
+  # regression (Gradle config, manifest, plugin sync) gets caught at all.
   android-build:
     runs-on: ubuntu-latest
     needs: frontend-build
@@ -83,7 +87,11 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          # @capacitor/android and @capacitor/preferences both declare
+          # Gradle sourceCompatibility/targetCompatibility as
+          # JavaVersion.VERSION_21 (see their android/build.gradle files
+          # under node_modules) — Capacitor 8.5.1 requires JDK 21, not 17.
+          java-version: "21"
       - uses: android-actions/setup-android@v3
       - run: npx cap sync android
       - name: Build debug APK
