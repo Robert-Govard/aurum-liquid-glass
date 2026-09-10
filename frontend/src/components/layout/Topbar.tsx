@@ -1,8 +1,9 @@
+import { LogOut, Menu } from "lucide-react";
 import { useLocation } from "react-router-dom";
-import { Menu } from "lucide-react";
 import { NAV_ITEMS } from "@/lib/navigation";
 import { useTranslation } from "@/lib/i18n";
 import { glassSurfaceClass } from "@/components/ui/GlassSurface";
+import { logout, useAuthState } from "@/lib/auth";
 
 interface TopbarProps {
   onOpenMobileNav: () => void;
@@ -11,6 +12,7 @@ interface TopbarProps {
 export function Topbar({ onOpenMobileNav }: TopbarProps) {
   const location = useLocation();
   const { t } = useTranslation();
+  const { user } = useAuthState();
   const activeItem = NAV_ITEMS.find((item) => (item.to === "/" ? location.pathname === "/" : location.pathname.startsWith(item.to)));
 
   return (
@@ -24,6 +26,27 @@ export function Topbar({ onOpenMobileNav }: TopbarProps) {
         <Menu size={20} />
       </button>
       <h1 className="text-lg font-semibold text-text-primary">{activeItem ? t(activeItem.labelKey) : "Aurum"}</h1>
+      {user && (
+        <div className="ml-auto flex min-w-0 items-center gap-2">
+          {/* Hidden below sm: the header is already tight on a phone
+              screen with the hamburger button and page title, and the
+              logout icon alone is enough to act on there — the email is a
+              nice-to-have identity check, not something a mobile user
+              needs visible at all times. */}
+          <span className="hidden truncate text-xs text-text-muted sm:inline" title={user.email}>
+            {user.email}
+          </span>
+          <button
+            type="button"
+            onClick={() => void logout()}
+            aria-label={t("topbar.logout")}
+            title={t("topbar.logout")}
+            className="rounded-md p-1.5 text-text-secondary hover:bg-surface-2"
+          >
+            <LogOut size={18} />
+          </button>
+        </div>
+      )}
     </header>
   );
 }
