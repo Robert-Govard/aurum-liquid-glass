@@ -1,11 +1,11 @@
 """Full-database backup export/import (services/backup_service.py):
 round-trip correctness of subcategories (self-referential parent_id), tags
-(many-to-many), transaction splits, and pre-portfolios crypto holdings;
-per-user isolation of both export (a user's export never contains another
-user's rows) and import (restoring never reads, modifies, or wipes another
-user's data, and never corrupts the shared id sequences other users rely
-on — including under a concurrent, not-yet-committed insert); and that
-both endpoints still require authentication.
+(many-to-many), and transaction splits; per-user isolation of both export
+(a user's export never contains another user's rows) and import (restoring
+never reads, modifies, or wipes another user's data, and never corrupts the
+shared id sequences other users rely on — including under a concurrent,
+not-yet-committed insert); regression guard for sequence monotonicity under
+concurrent inserts; and that both endpoints still require authentication.
 """
 from httpx import AsyncClient
 from sqlalchemy import text
