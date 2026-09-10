@@ -313,6 +313,12 @@ async def restore_backup(session: AsyncSession, payload: BackupPayload, user_id:
         # int) because the fallback row has no id yet — same "assign the
         # relationship, not the id column, before flush" reasoning as
         # transactions_by_id/tags_by_id above.
+        # No special-casing is needed here to make the fallback portfolio's
+        # id visible to `_reset_sequence("crypto_portfolios")` below: once
+        # this row is flushed it has a real id like any other, so it's
+        # already reflected in the table's live MAX(id) the same as every
+        # payload portfolio — the live `_reset_sequence` call covers both
+        # without this block needing to know about sequences at all.
         fallback_portfolio: CryptoPortfolio | None = None
         if any(row.portfolio_id is None for row in payload.crypto_holdings):
             fallback_portfolio = CryptoPortfolio(name="Main Portfolio", color="#2a78d6", user_id=user_id)
@@ -357,6 +363,12 @@ async def restore_backup(session: AsyncSession, payload: BackupPayload, user_id:
         await _reset_sequence(session, "goal_contributions")
         await _reset_sequence(session, "recurring_transactions")
 
+        # app_settings is a per-user row, looked up (or created if this is
+        # the user's very first restore) via get_or_create_app_settings and
+        # then updated in place field-by-field below — never deleted and
+        # recreated like the tables above. So unlike everything else in this
+        # function, it needs no delete/reinsert and no _reset_sequence call:
+        # its own identity/sequence is simply never touched by this restore.
         settings_row = await get_or_create_app_settings(session, user_id)
         for field, value in payload.app_settings.model_dump().items():
             setattr(settings_row, field, value)
