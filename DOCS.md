@@ -49,30 +49,30 @@ this base URL — e.g. `GET /transactions` means `GET http://localhost:3000/api/
 
 ### Auth
 
-Aurum has no built-in login system or API keys — it's designed for one person to self-host one
-private instance. Access control is whatever you put in front of it:
-
-- **Nothing set:** if `AURUM_BASIC_AUTH_USER` / `AURUM_BASIC_AUTH_PASSWORD` are empty in `.env`
-  (the default), the API is completely open to anyone who can reach the host — no credentials
-  needed. Fine for `localhost`-only or a private network; **not** fine on the public internet.
-- **HTTP Basic Auth:** set both `AURUM_BASIC_AUTH_USER` and `AURUM_BASIC_AUTH_PASSWORD` in `.env`
-  and restart (`docker compose up -d`). Every request — UI and API alike — then requires an
-  `Authorization: Basic <base64(user:password)>` header, or the equivalent `-u user:password` flag
-  in curl.
+Aurum uses real per-user accounts — every request (except `GET /api/health`) requires a valid JWT
+access token, obtained by registering or logging in:
 
 ```bash
-# No auth configured
-curl http://localhost:3000/api/accounts
+# Register a new account
+curl -X POST http://localhost:3000/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email": "you@example.com", "password": "a-real-password"}'
+# -> {"access_token": "...", "refresh_token": "...", "token_type": "bearer"}
 
-# Basic Auth configured
-curl -u myuser:mypassword http://localhost:3000/api/accounts
+# Use the access token on every subsequent request
+curl http://localhost:3000/api/accounts \
+  -H "Authorization: Bearer <access_token>"
 ```
 
-`GET /api/health` is always open (no auth), even with Basic Auth configured — it exists for Docker
-healthchecks and uptime monitors.
+Access tokens expire after 15 minutes — exchange the refresh token (valid 30 days) for a fresh
+pair via `POST /api/auth/refresh` with `{"refresh_token": "..."}` rather than logging in again.
+`POST /api/auth/logout` (same body shape) revokes a refresh token immediately.
 
-There's no per-endpoint permission model beyond this: whoever can authenticate can read, create,
-update, and delete everything.
+`GET /api/health` is always open (no auth) — it exists for Docker healthchecks and uptime monitors.
+
+There's no per-endpoint permission model beyond "is this your own data": every account, transaction,
+asset, and setting is private to the user who created it — whoever authenticates as a given user can
+read, create, update, and delete only that user's own data, never anyone else's.
 
 ## Conventions
 
@@ -99,7 +99,7 @@ Standard HTTP status codes:
 | `200` / `201` | Success (`201` on `POST` that creates a resource) |
 | `204` | Success, no response body (deletes) |
 | `400` | Invalid request — a business rule was violated (e.g. wrong category kind, duplicate budget) |
-| `401` | Missing/invalid Basic Auth credentials (only when Basic Auth is configured) |
+| `401` | Missing, invalid, or expired access token |
 | `404` | Resource not found |
 | `422` | Request body failed schema validation (wrong type, missing required field, out-of-range value) |
 
