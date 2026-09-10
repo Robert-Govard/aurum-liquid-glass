@@ -6,11 +6,10 @@ canned market-data feed instead, same way any external dependency would be.
 from decimal import Decimal
 
 import httpx
-import pytest
 from httpx import AsyncClient
 
 from app.services import crypto_service
-from tests.helpers import auth_headers, money, promote_current_user_to_admin, register_user
+from tests.helpers import auth_headers, money, register_user
 
 
 def _point(price: str, change_1h: str | None = None, change_24h: str | None = None, change_7d: str | None = None):
@@ -246,19 +245,12 @@ async def test_create_rejects_when_no_api_key_configured(client: AsyncClient, mo
     assert resp.status_code == 400
 
 
-@pytest.mark.xfail(
-    reason="backup_service.py doesn't stamp user_id on restored rows yet — deferred to the Part 3 multi-tenant plan",
-    strict=True,
-)
-async def test_backup_roundtrip_preserves_holding_and_transaction_log(
-    client: AsyncClient, monkeypatch, test_sessionmaker
-):
+async def test_backup_roundtrip_preserves_holding_and_transaction_log(client: AsyncClient, monkeypatch):
     """A crypto holding is an Asset underneath, so it would still show up
     after a restore even without this — but as an inert manual asset,
     having silently lost which coin it was and its whole buy/sell history
     (so quantity and avg buy price couldn't be recomputed). Backup must
     carry both CryptoHolding and CryptoTransaction rows."""
-    await promote_current_user_to_admin(test_sessionmaker)  # /backup/* is admin-gated (see backup.py)
     monkeypatch.setattr(crypto_service, "_fetch_market_data", _fake_fetch({"bitcoin": _point("50000")}))
     holding = await _add_bitcoin(client, "1", "40000")
     await client.post(
@@ -281,12 +273,7 @@ async def test_backup_roundtrip_preserves_holding_and_transaction_log(
     assert money(restored["value"]) == money("100000")  # last_price survived too (2 * 50000)
 
 
-@pytest.mark.xfail(
-    reason="backup_service.py doesn't stamp user_id on restored rows yet — deferred to the Part 3 multi-tenant plan",
-    strict=True,
-)
-async def test_backup_roundtrip_preserves_portfolio_assignment(client: AsyncClient, monkeypatch, test_sessionmaker):
-    await promote_current_user_to_admin(test_sessionmaker)  # /backup/* is admin-gated (see backup.py)
+async def test_backup_roundtrip_preserves_portfolio_assignment(client: AsyncClient, monkeypatch):
     monkeypatch.setattr(crypto_service, "_fetch_market_data", _fake_fetch({"bitcoin": _point("50000")}))
     portfolio = (await client.post("/crypto/portfolios", json={"name": "Long-term"})).json()
     resp = await client.post(
@@ -317,18 +304,13 @@ async def test_backup_roundtrip_preserves_portfolio_assignment(client: AsyncClie
     assert restored_holding["portfolio_id"] == restored_portfolios[0]["id"]
 
 
-@pytest.mark.xfail(
-    reason="backup_service.py doesn't stamp user_id on restored rows yet — deferred to the Part 3 multi-tenant plan",
-    strict=True,
-)
 async def test_restoring_a_pre_portfolios_backup_falls_back_to_a_default_portfolio(
-    client: AsyncClient, monkeypatch, test_sessionmaker
+    client: AsyncClient, monkeypatch
 ):
     """A backup exported before crypto portfolios existed has no
     crypto_portfolios list and every holding's portfolio_id is absent —
     restore_backup() must still produce a valid NOT NULL portfolio_id
     instead of failing the import."""
-    await promote_current_user_to_admin(test_sessionmaker)  # /backup/* is admin-gated (see backup.py)
     monkeypatch.setattr(crypto_service, "_fetch_market_data", _fake_fetch({"bitcoin": _point("50000")}))
     holding = await _add_bitcoin(client, "1", "40000")
 

@@ -2,21 +2,12 @@
 the parts this change touched: subcategories (self-referential parent_id)
 and tags (many-to-many) surviving a round trip.
 """
-import pytest
 from httpx import AsyncClient
 
-from tests.helpers import promote_current_user_to_admin, txn_payload as _txn
+from tests.helpers import txn_payload as _txn
 
 
-@pytest.mark.xfail(
-    reason="backup_service.py doesn't stamp user_id on restored rows yet — deferred to the Part 3 multi-tenant plan",
-    strict=True,
-)
-async def test_backup_roundtrip_preserves_subcategories_and_tags(
-    client: AsyncClient, account_id, categories, test_sessionmaker
-):
-    await promote_current_user_to_admin(test_sessionmaker)
-
+async def test_backup_roundtrip_preserves_subcategories_and_tags(client: AsyncClient, account_id, categories):
     parent = await client.post("/categories", json={"name": "Custom Parent", "kind": "expense", "color": "#e34948"})
     parent_id = parent.json()["id"]
     child = await client.post(
@@ -42,11 +33,7 @@ async def test_backup_roundtrip_preserves_subcategories_and_tags(
     assert [t["id"] for t in refetched_txn["tags"]] == [tag]
 
 
-async def test_backup_import_rejects_transaction_with_unknown_tag_id(
-    client: AsyncClient, account_id, categories, test_sessionmaker
-):
-    await promote_current_user_to_admin(test_sessionmaker)
-
+async def test_backup_import_rejects_transaction_with_unknown_tag_id(client: AsyncClient, account_id, categories):
     export_resp = await client.get("/backup/export")
     payload = export_resp.json()
 
@@ -77,15 +64,7 @@ async def test_backup_import_rejects_transaction_with_unknown_tag_id(
     assert resp.status_code == 400
 
 
-@pytest.mark.xfail(
-    reason="backup_service.py doesn't stamp user_id on restored rows yet — deferred to the Part 3 multi-tenant plan",
-    strict=True,
-)
-async def test_backup_roundtrip_preserves_transaction_splits(
-    client: AsyncClient, account_id, categories, test_sessionmaker
-):
-    await promote_current_user_to_admin(test_sessionmaker)
-
+async def test_backup_roundtrip_preserves_transaction_splits(client: AsyncClient, account_id, categories):
     groceries = categories["Groceries"]["id"]
     sweets = (
         await client.post("/categories", json={"name": "Sweets", "kind": "expense", "color": "#7a869a", "parent_id": groceries})
@@ -128,3 +107,56 @@ async def test_export_only_includes_the_callers_own_data(client: AsyncClient, ac
     payload = (await client.get("/backup/export")).json()
     account_names = {a["name"] for a in payload["accounts"]}
     assert "B Wallet" not in account_names
+
+
+async def test_import_never_touches_another_users_data(client: AsyncClient, account_id, categories):
+    """The single most important property of self-service restore: importing
+    a backup must only ever affect the calling user's own rows."""
+    from tests.helpers import auth_headers, register_user
+
+    b_tokens = await register_user(client, "backupb2@example.com")
+    b_account_resp = await client.post(
+        "/accounts", json={"name": "B Wallet", "type": "cash", "currency": "USD"},
+        headers=auth_headers(b_tokens["access_token"]),
+    )
+    b_account_id = b_account_resp.json()["id"]
+
+    payload = (await client.get("/backup/export")).json()
+    import_resp = await client.post("/backup/import", json=payload)
+    assert import_resp.status_code == 200, import_resp.text
+
+    b_accounts = (await client.get("/accounts", headers=auth_headers(b_tokens["access_token"]))).json()
+    assert any(a["id"] == b_account_id for a in b_accounts)
+
+
+async def test_import_does_not_break_sequence_for_other_users(client: AsyncClient, account_id, categories):
+    """Regression guard for the sequence-reset bug this task fixes: restoring
+    a user's own OLD, low-numbered backup must never roll the shared id
+    sequence backward below ids another user's rows already occupy — doing
+    so would make a future ordinary INSERT by that other user collide with
+    their own existing row."""
+    from tests.helpers import auth_headers, register_user
+
+    payload = (await client.get("/backup/export")).json()  # A's own backup, low ids
+
+    b_tokens = await register_user(client, "backupb3@example.com")
+    b_headers = auth_headers(b_tokens["access_token"])
+    # Push the shared accounts-table sequence well past A's own ids.
+    for i in range(5):
+        resp = await client.post(
+            "/accounts", json={"name": f"B Account {i}", "type": "cash", "currency": "USD"}, headers=b_headers
+        )
+        assert resp.status_code == 201
+
+    import_resp = await client.post("/backup/import", json=payload)
+    assert import_resp.status_code == 200, import_resp.text
+
+    # If the sequence were wrongly rolled back to A's own (lower) backup
+    # max, this next INSERT would collide with one of B's 5 accounts above
+    # and 500 instead of 201.
+    new_b_account = await client.post(
+        "/accounts", json={"name": "B Account After Restore", "type": "cash", "currency": "USD"}, headers=b_headers
+    )
+    assert new_b_account.status_code == 201
+    b_accounts = (await client.get("/accounts", headers=b_headers)).json()
+    assert len({a["id"] for a in b_accounts}) == len(b_accounts)  # no duplicate ids
