@@ -18,6 +18,6 @@ class Budget(Base, TimestampMixin):
         ForeignKey("categories.id", ondelete="CASCADE"), nullable=False, unique=True
     )
     monthly_limit: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
-    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
 
     category: Mapped["Category"] = relationship()

@@ -21,7 +21,7 @@ class Account(Base, TimestampMixin):
     # Hex color used for account-scoped UI accents (e.g. transaction list avatars).
     color: Mapped[str | None] = mapped_column(String(7), nullable=True)
     is_archived: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
 
     transactions: Mapped[list["Transaction"]] = relationship(
         back_populates="account",

@@ -45,7 +45,7 @@ class Asset(Base, TimestampMixin):
         default=RiskLevel.MEDIUM,
     )
 
-    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
 
     valuations: Mapped[list["AssetValuation"]] = relationship(
         back_populates="asset", cascade="all, delete-orphan", order_by="AssetValuation.as_of_date"
@@ -64,6 +64,6 @@ class AssetValuation(Base):
     value: Mapped[Numeric] = mapped_column(Numeric(14, 2), nullable=False)
     as_of_date: Mapped[date_] = mapped_column(Date, nullable=False)
 
-    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
 
     asset: Mapped["Asset"] = relationship(back_populates="valuations")

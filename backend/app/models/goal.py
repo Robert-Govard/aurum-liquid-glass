@@ -17,7 +17,7 @@ class Goal(Base, TimestampMixin):
     name: Mapped[str] = mapped_column(String(150), nullable=False)
     target_amount: Mapped[Numeric] = mapped_column(Numeric(14, 2), nullable=False)
     target_date: Mapped[date_ | None] = mapped_column(Date, nullable=True)
-    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
 
     contributions: Mapped[list["GoalContribution"]] = relationship(
         back_populates="goal", cascade="all, delete-orphan", order_by="GoalContribution.date"

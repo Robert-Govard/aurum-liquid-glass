@@ -44,7 +44,7 @@ class CryptoPortfolio(Base, TimestampMixin):
     color: Mapped[str | None] = mapped_column(String(7), nullable=True)
     is_archived: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
-    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
 
     holdings: Mapped[list["CryptoHolding"]] = relationship(back_populates="portfolio")
 
@@ -93,7 +93,7 @@ class CryptoHolding(Base, TimestampMixin):
     price_change_30d: Mapped[Numeric | None] = mapped_column(Numeric(10, 4), nullable=True)
     price_change_1y: Mapped[Numeric | None] = mapped_column(Numeric(10, 4), nullable=True)
 
-    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
 
     asset: Mapped["Asset"] = relationship()
     portfolio: Mapped["CryptoPortfolio"] = relationship(back_populates="holdings")
@@ -124,7 +124,7 @@ class CryptoTransaction(Base, TimestampMixin):
     date: Mapped[date_] = mapped_column(Date, nullable=False)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
 
     holding: Mapped["CryptoHolding"] = relationship(back_populates="transactions")
 
@@ -143,7 +143,7 @@ class CryptoSyncState(Base):
     __tablename__ = "crypto_sync_state"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int | None] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), nullable=True, unique=True
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True
     )
     last_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

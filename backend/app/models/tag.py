@@ -22,7 +22,7 @@ class Tag(Base):
     __table_args__ = (UniqueConstraint("user_id", "name", name="uq_tags_user_id_name"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     name: Mapped[str] = mapped_column(String(50), nullable=False)
 
     transactions: Mapped[list["Transaction"]] = relationship(secondary=transaction_tags, back_populates="tags")
