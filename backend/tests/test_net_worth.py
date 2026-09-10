@@ -75,6 +75,14 @@ async def test_capital_role_and_risk_level_summaries_exclude_another_users_asset
 
     drain_role = next(r for r in body["capital_roles"] if r["role"] == "drain")
     assert money(drain_role["total_value"]) == Decimal("0")  # B's asset must not count here
+    # total_value alone doesn't discriminate _capital_role_summary's own
+    # scoping: it's derived from current_by_asset, which is populated by a
+    # SEPARATE, already-scoped query — so total_value would stay 0 even if
+    # _capital_role_summary's own `roles_result` query leaked B's asset in
+    # (its value just wouldn't be found in current_by_asset). `count`
+    # increments unconditionally per row from that same roles_result query,
+    # so it's the field that actually catches an unscoped read there.
+    assert drain_role["count"] == 0  # B's asset must not be counted here either
 
     high_risk = next(r for r in body["risk_levels"] if r["risk_level"] == "high")
     assert money(high_risk["total_value"]) == Decimal("0")  # B's asset must not count here

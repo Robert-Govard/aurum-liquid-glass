@@ -206,7 +206,6 @@ async def test_rollup_excludes_another_users_categories_and_transactions(client:
 
     resp = await client.get("/dashboard/summary", params={"year": 2026, "month": 8})
     body = resp.json()
-    breakdown = {row["name"]: row for row in body["spending_by_category"]}
     # Only user A's Groceries category should appear with 75.00, not 575.00 (leaked from user B)
     # Also check that there's only one Groceries entry for user A's category
     groceries_entries = [row for row in body["spending_by_category"] if row["name"] == "Groceries"]
