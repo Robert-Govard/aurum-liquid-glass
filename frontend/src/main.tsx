@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter } from "react-router-dom";
 import App from "@/App";
 import { LoginGate } from "@/components/auth/LoginGate";
+import { attachQueryClient } from "@/lib/auth";
 import "@/lib/theme";
 import "@/index.css";
 
@@ -15,6 +16,12 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+// Lets lib/auth.ts's clearSession() wipe this cache the moment a session
+// ends (logout, or a failed token refresh) — otherwise a different user
+// logging into the same tab afterward could briefly see the previous
+// user's cached financial data (see lib/auth.ts's attachQueryClient docs).
+attachQueryClient(queryClient);
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

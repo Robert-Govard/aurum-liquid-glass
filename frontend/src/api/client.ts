@@ -33,18 +33,20 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const newToken = await refreshAccessToken();
     if (newToken) {
       response = await doFetch(path, init, newToken);
+      if (response.status === 401) {
+        // Retried with a genuinely fresh token and still unauthorized —
+        // a real "not who you think you are" case, not a network hiccup.
+        // refreshAccessToken() only handles ITS OWN failure modes; this
+        // is the one 401 case only this function can see.
+        clearSession();
+      }
     }
-  }
-
-  if (response.status === 401) {
-    // Still unauthorized after the refresh-and-retry above — whether
-    // because there was no refresh token to try, the refresh itself
-    // failed (already cleared inside refreshAccessToken), or even the
-    // retried request came back unauthorized with a fresh token, the
-    // session is over. Clearing here too (harmless no-op if already
-    // cleared) guarantees LoginGate falls back to the auth screen instead
-    // of every subsequent request failing the same way forever.
-    clearSession();
+    // newToken === null means refreshAccessToken() already made the
+    // right call — cleared the session for an invalid/expired refresh
+    // token, or deliberately left it alone for a network failure. Don't
+    // second-guess that decision here: calling clearSession() again on a
+    // plain network hiccup would violate auth.ts's own guarantee that a
+    // transient network failure never logs the user out.
   }
 
   if (!response.ok) {

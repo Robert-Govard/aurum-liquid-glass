@@ -12,7 +12,7 @@ interface TopbarProps {
 export function Topbar({ onOpenMobileNav }: TopbarProps) {
   const location = useLocation();
   const { t } = useTranslation();
-  const { user } = useAuthState();
+  const { user, accessToken } = useAuthState();
   const activeItem = NAV_ITEMS.find((item) => (item.to === "/" ? location.pathname === "/" : location.pathname.startsWith(item.to)));
 
   return (
@@ -26,16 +26,26 @@ export function Topbar({ onOpenMobileNav }: TopbarProps) {
         <Menu size={20} />
       </button>
       <h1 className="text-lg font-semibold text-text-primary">{activeItem ? t(activeItem.labelKey) : "Aurum"}</h1>
-      {user && (
+      {accessToken && (
+        // Gated on accessToken (not user) — login()/register() in auth.ts
+        // set the access token BEFORE /auth/me resolves, so LoginGate
+        // (which only checks accessToken) can already be showing the app
+        // while `user` is still null. Gating this container on `user`
+        // would hide the logout button entirely until a reload in that
+        // window; gating on accessToken keeps it available as soon as
+        // there's a session to log out of, while the email itself still
+        // waits for `user` to actually be populated.
         <div className="ml-auto flex min-w-0 items-center gap-2">
           {/* Hidden below sm: the header is already tight on a phone
               screen with the hamburger button and page title, and the
               logout icon alone is enough to act on there — the email is a
               nice-to-have identity check, not something a mobile user
               needs visible at all times. */}
-          <span className="hidden truncate text-xs text-text-muted sm:inline" title={user.email}>
-            {user.email}
-          </span>
+          {user && (
+            <span className="hidden truncate text-xs text-text-muted sm:inline" title={user.email}>
+              {user.email}
+            </span>
+          )}
           <button
             type="button"
             onClick={() => void logout()}

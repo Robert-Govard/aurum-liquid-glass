@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import type { QueryClient } from "@tanstack/react-query";
 
 /**
  * Client-side JWT session state — replaces the earlier HTTP-Basic-Auth-
@@ -169,6 +170,14 @@ export function clearSession(): void {
   } catch {
     // ignore — nothing to clean up if storage was never usable
   }
+  // Bump the epoch BEFORE wiping state so any refreshAccessToken() call
+  // already in flight (started before this logout) can tell its result is
+  // now stale and must not resurrect the session it was refreshing.
+  sessionEpoch += 1;
+  // Wipe every cached query (accounts, dashboard summary, etc.) so a
+  // different user logging into this same tab next can't briefly see this
+  // user's cached financial data before their own fetch completes.
+  queryClient?.clear();
   setState({ accessToken: null, user: null });
 }
 
@@ -191,6 +200,25 @@ export async function logout(): Promise<void> {
   }
 }
 
+// Set once by main.tsx right after the QueryClient is created — lets
+// clearSession() below wipe every cached query the moment a session
+// ends, so a different user logging into the same tab afterward can
+// never see a stale render of the previous user's financial data before
+// a fresh fetch completes (React Query's default gcTime keeps unmounted
+// query data around for 5 minutes otherwise, which is long enough for a
+// same-tab logout-then-login-as-someone-else to show it).
+let queryClient: QueryClient | null = null;
+
+export function attachQueryClient(client: QueryClient): void {
+  queryClient = client;
+}
+
+// Incremented by clearSession() — lets an in-flight refreshAccessToken()
+// notice its result is stale (the session it was refreshing has since
+// been explicitly ended) and discard it instead of reviving a session
+// the user just logged out of.
+let sessionEpoch = 0;
+
 // Concurrent 401s (several API calls in flight at the moment the access
 // token expires) must not each fire their own refresh call — the refresh
 // token is single-use (rotated on every call, see the module docstring),
@@ -210,6 +238,7 @@ let refreshPromise: Promise<string | null> | null = null;
 export async function refreshAccessToken(): Promise<string | null> {
   if (refreshPromise) return refreshPromise;
 
+  const epochAtStart = sessionEpoch;
   refreshPromise = (async () => {
     const refreshToken = readRefreshToken();
     if (!refreshToken) return null;
@@ -224,6 +253,12 @@ export async function refreshAccessToken(): Promise<string | null> {
         return null;
       }
       const pair = (await response.json()) as TokenPair;
+      if (sessionEpoch !== epochAtStart) {
+        // The session was explicitly cleared (logout, or another failed
+        // refresh) while this request was in flight — applying this
+        // result now would silently undo that logout. Discard it.
+        return null;
+      }
       storeTokenPair(pair);
       return pair.access_token;
     } catch {

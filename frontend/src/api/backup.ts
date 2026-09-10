@@ -1,5 +1,5 @@
 import { api } from "@/api/client";
-import { getAccessToken } from "@/lib/auth";
+import { getAccessToken, refreshAccessToken } from "@/lib/auth";
 import { t } from "@/lib/i18n";
 
 export async function exportBackup(): Promise<void> {
@@ -7,13 +7,28 @@ export async function exportBackup(): Promise<void> {
   // download, not JSON — so the Authorization header has to be attached
   // here by hand too, same as every other request. Uses the in-memory JWT
   // access token directly (see lib/auth.ts) rather than a Basic-Auth
-  // header; unlike api/client.ts's request(), this raw fetch does not
-  // refresh-and-retry on a 401 — a rare edge case for an explicit,
-  // user-initiated export click, not worth the extra complexity here.
-  const accessToken = getAccessToken();
-  const response = await fetch("/api/backup/export", {
+  // header; this DOES get the same one-shot refresh-and-retry treatment
+  // as api/client.ts's request() below, just implemented by hand since
+  // request() itself can't be reused for a non-JSON file download.
+  let accessToken = getAccessToken();
+  let response = await fetch("/api/backup/export", {
     headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
   });
+  if (response.status === 401) {
+    // The access token is missing or expired — try exactly once to
+    // refresh it and replay this same request before giving up, same as
+    // api/client.ts's request(). A still-401 result here is left for the
+    // generic error handling below rather than clearing the session
+    // ourselves — refreshAccessToken() already made the right call
+    // internally (cleared for an invalid/expired token, or deliberately
+    // left the session alone for a network failure).
+    accessToken = await refreshAccessToken();
+    if (accessToken) {
+      response = await fetch("/api/backup/export", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+    }
+  }
   if (!response.ok) {
     throw new Error(await response.text());
   }
