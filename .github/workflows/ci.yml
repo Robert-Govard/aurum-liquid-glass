@@ -64,3 +64,32 @@ jobs:
       # and a type error a PR might introduce, same as `npm run build`
       # locally before shipping a change.
       - run: npm run build
+
+  android-build:
+    runs-on: ubuntu-latest
+    needs: frontend-build
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v3
+      - run: npx cap sync android
+      - name: Build debug APK
+        working-directory: frontend/android
+        run: ./gradlew assembleDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aurum-debug-apk
+          path: frontend/android/app/build/outputs/apk/debug/app-debug.apk
