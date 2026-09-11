@@ -7,6 +7,7 @@ import type { AdminUser } from "@/types";
 interface AdminUserListProps {
   items: AdminUser[];
   currentUserId: number | undefined;
+  onView: (user: AdminUser) => void;
   onToggleActive: (user: AdminUser) => void;
   onDelete: (user: AdminUser) => void;
 }
@@ -21,7 +22,7 @@ function transactionsCountLabel(count: number, language: Language): string {
   return count === 1 ? "transaction" : "transactions";
 }
 
-export function AdminUserList({ items, currentUserId, onToggleActive, onDelete }: AdminUserListProps) {
+export function AdminUserList({ items, currentUserId, onView, onToggleActive, onDelete }: AdminUserListProps) {
   const { t, language } = useTranslation();
 
   if (items.length === 0) {
@@ -34,7 +35,7 @@ export function AdminUserList({ items, currentUserId, onToggleActive, onDelete }
         const isSelf = user.id === currentUserId;
         return (
           <li key={user.id} className={`flex flex-wrap items-center gap-3 py-3 ${!user.is_active ? "opacity-50" : ""}`}>
-            <span className="min-w-0 flex-1">
+            <button type="button" onClick={() => onView(user)} className="min-w-0 flex-1 text-left">
               <span className="flex flex-wrap items-center gap-1.5 text-sm font-medium text-text-primary">
                 <span className="min-w-0 truncate">{user.email}</span>
                 {user.is_admin && (
@@ -62,7 +63,7 @@ export function AdminUserList({ items, currentUserId, onToggleActive, onDelete }
                 {" · "}
                 {t("admin.netWorthLabel", { amount: formatCurrency(user.net_worth, user.currency) })}
               </span>
-            </span>
+            </button>
             {!isSelf && (
               <span className="flex shrink-0 items-center gap-3">
                 <Switch

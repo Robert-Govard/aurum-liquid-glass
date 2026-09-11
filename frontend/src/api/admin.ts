@@ -1,5 +1,5 @@
 import { api } from "@/api/client";
-import type { AdminUser } from "@/types";
+import type { AdminUser, DashboardSummary } from "@/types";
 
 export function fetchAdminUsers() {
   return api.get<AdminUser[]>("/admin/users");
@@ -11,4 +11,8 @@ export function updateAdminUser(id: number, input: { is_active: boolean }) {
 
 export function deleteAdminUser(id: number) {
   return api.delete<void>(`/admin/users/${id}`);
+}
+
+export function fetchAdminUserDashboard(userId: number, year: number, month: number) {
+  return api.get<DashboardSummary>(`/admin/users/${userId}/dashboard-summary?year=${year}&month=${month}`);
 }

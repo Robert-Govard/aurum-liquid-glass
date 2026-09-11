@@ -1,8 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { deleteAdminUser, fetchAdminUsers, updateAdminUser } from "@/api/admin";
+import { deleteAdminUser, fetchAdminUserDashboard, fetchAdminUsers, updateAdminUser } from "@/api/admin";
 
 export function useAdminUsers() {
   return useQuery({ queryKey: ["admin-users"], queryFn: fetchAdminUsers });
+}
+
+export function useAdminUserDashboard(userId: number | null, year: number, month: number) {
+  return useQuery({
+    queryKey: ["admin-user-dashboard", userId, year, month],
+    queryFn: () => fetchAdminUserDashboard(userId as number, year, month),
+    // Same conditional-query pattern already used in hooks/useCrypto.ts and
+    // hooks/useReports.ts — don't fire a request with a nonsense id before
+    // any user has been selected in the admin list.
+    enabled: userId !== null,
+  });
 }
 
 export function useUpdateAdminUser() {
