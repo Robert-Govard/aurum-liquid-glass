@@ -123,8 +123,10 @@ At minimum, change these two before going any further:
 |---|---|
 | `AURUM_POSTGRES_PASSWORD` | Password for Aurum's own Postgres container. The template ships with `change-me` on purpose — replace it with something real. |
 | `AURUM_JWT_SECRET` | Signing key for login sessions — generate a real one with `openssl rand -hex 32`. See [Security & Self-Hosting](#-security--self-hosting) below. |
+| `AURUM_SMTP_HOST` | The mail server used to send the verification link — required before anyone can complete registration; without it, accounts can be created but never verified, and login always fails with 403. |
+| `AURUM_PUBLIC_URL` | The address this instance is reachable at, used to build that verification link, e.g. `https://your-domain.com` or `http://192.168.1.50:3000`. |
 
-Everything else in `.env` (currency, CORS, the port Aurum listens on) has a sensible default and can be left alone for a first run.
+Everything else in `.env` (currency, CORS, the port Aurum listens on) has a sensible default and can be left alone for a first run — but the four rows above are not optional: registration will not actually work end-to-end without SMTP and the public URL configured.
 
 ### 4. Start it
 

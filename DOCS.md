@@ -50,14 +50,29 @@ this base URL — e.g. `GET /transactions` means `GET http://localhost:3000/api/
 ### Auth
 
 Aurum uses real per-user accounts — every request (except `GET /api/health`) requires a valid JWT
-access token, obtained by registering or logging in:
+access token, obtained by logging in. Registering does **not** log you in: the account must first be
+verified via the link emailed to it.
 
 ```bash
-# Register a new account
+# Register a new account — does not return tokens, just queues a verification email
 curl -X POST http://localhost:3000/api/auth/register \
   -H "Content-Type: application/json" \
   -d '{"email": "you@example.com", "password": "a-real-password"}'
+# -> {"message": "Verification email sent"}  (201)
+
+# The verification link's frontend page calls this with the token from the URL —
+# it returns the same token pair shape login/refresh do
+curl -X POST http://localhost:3000/api/auth/verify-email \
+  -H "Content-Type: application/json" \
+  -d '{"token": "<token from the emailed link>"}'
 # -> {"access_token": "...", "refresh_token": "...", "token_type": "bearer"}
+
+# Once verified, log in normally
+curl -X POST http://localhost:3000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "you@example.com", "password": "a-real-password"}'
+# -> {"access_token": "...", "refresh_token": "...", "token_type": "bearer"}
+# A correct password on an unverified account returns 403, not tokens.
 
 # Use the access token on every subsequent request
 curl http://localhost:3000/api/accounts \

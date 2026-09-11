@@ -55,6 +55,18 @@ async def _drop_test_database() -> None:
     await engine.dispose()
 
 
+@pytest.fixture(autouse=True)
+def _no_real_smtp(monkeypatch):
+    """Forces AURUM_SMTP_HOST off for every test regardless of what a
+    developer's local .env (used for their own dev Docker stack) actually
+    has configured. Without this, register()'s BackgroundTasks really
+    execute under this project's ASGITransport-based test client, so a real
+    SMTP host in .env would make the ~250 register() calls across the whole
+    suite either hammer a real mail server or hang on connection timeouts
+    against an unreachable one."""
+    monkeypatch.setattr(get_settings(), "smtp_host", "")
+
+
 @pytest.fixture(scope="session")
 def _test_database() -> Generator[None, None, None]:
     """Create aurum_test from scratch and run every Alembic migration

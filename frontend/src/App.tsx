@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 import { MobileTabBar } from "@/components/layout/MobileTabBar";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
@@ -78,6 +78,14 @@ export default function App() {
             <Route path="/recurring" element={<RecurringPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/admin" element={<AdminPage />} />
+            {/* Пользователь попадает сюда по ссылке из письма, пока ещё нет
+                сессии — LoginGate в этом случае рендерит VerifyEmailScreen
+                напрямую. Но verifyEmail() внутри него синхронно обновляет
+                сессию, LoginGate тут же переключается на этот <App/>, а URL
+                в адресной строке остаётся "/verify-email" — без этого
+                маршрута он не совпадёт ни с одним <Route> выше и контент
+                останется пустым. Редиректим на главную. */}
+            <Route path="/verify-email" element={<Navigate to="/" replace />} />
           </Routes>
         </main>
       </div>

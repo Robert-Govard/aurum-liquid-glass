@@ -17,7 +17,11 @@ def send_verification_email(to_email: str, token: str) -> None:
         logger.info("AURUM_SMTP_HOST not set — skipping verification email to %s", to_email)
         return
 
-    verify_url = f"{settings.public_url}/verify-email?token={token}"
+    # rstrip: AURUM_PUBLIC_URL with a trailing slash (e.g. "https://host.com/")
+    # would otherwise produce a double slash here, which LoginGate.tsx's
+    # exact `location.pathname === "/verify-email"` check won't match —
+    # silently breaking verification with no error message anywhere.
+    verify_url = f"{settings.public_url.rstrip('/')}/verify-email?token={token}"
     message = EmailMessage()
     message["Subject"] = "Подтвердите email — Aurum"
     message["From"] = settings.smtp_from or settings.smtp_user

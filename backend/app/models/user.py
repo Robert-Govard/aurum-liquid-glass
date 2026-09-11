@@ -20,11 +20,12 @@ class User(Base):
     # without deleting the account or its data.
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    # Set by auth_service.login()/register() — NULL means "never logged in
-    # since this column was added" for pre-existing users, or genuinely
-    # never (registered but never came back). Not touched by
-    # auth_service.refresh() — that's a silent session renewal, not an
-    # explicit login event.
+    # Set by auth_service.login()/verify_email() — register() no longer sets
+    # this, since registering no longer logs the user in (email verification
+    # is required first, see spec). NULL means "never logged in since this
+    # column was added" for pre-existing users, or genuinely never
+    # (registered but never came back). Not touched by auth_service.refresh()
+    # — that's a silent session renewal, not an explicit login event.
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # Verification state for the email the account was registered with —
     # see services/auth_service.py's register()/login()/verify_email().

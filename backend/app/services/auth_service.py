@@ -53,11 +53,16 @@ async def register(
     existing = result.scalar_one_or_none()
 
     if existing is not None:
-        if (
-            existing.is_email_verified
-            or not existing.is_active
-            or not verify_password(payload.password, existing.password_hash)
-        ):
+        # Computed unconditionally, before the branch below, rather than
+        # inline in the `or` chain: `or` short-circuits, so an inline check
+        # would skip the ~250-300ms bcrypt call whenever is_email_verified
+        # is already True — an already-verified account would then return
+        # 409 measurably faster than an unverified one with a wrong
+        # password, letting a caller distinguish verified from unverified
+        # accounts by response timing alone, which is exactly what the
+        # same-response-body rule below is trying to prevent.
+        password_matches = verify_password(payload.password, existing.password_hash)
+        if existing.is_email_verified or not existing.is_active or not password_matches:
             # Same response whether the email is already verified or the
             # password just doesn't match this unverified account —
             # otherwise the response would let a caller tell verified
