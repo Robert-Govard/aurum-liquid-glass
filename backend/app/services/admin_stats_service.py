@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.account import Account
 from app.models.asset import Asset, AssetValuation
 from app.models.enums import TransactionType
+from app.models.settings import AppSettings
 from app.models.transaction import Transaction
 from app.services.net_worth_service import CASH_ACCOUNT_TYPES
 
@@ -28,7 +29,11 @@ class UserStats:
 async def get_user_stats(session: AsyncSession) -> dict[int, UserStats]:
     stats: dict[int, UserStats] = defaultdict(UserStats)
 
-    accounts_result = await session.execute(select(Account.user_id, func.count(Account.id)).group_by(Account.user_id))
+    accounts_result = await session.execute(
+        select(Account.user_id, func.count(Account.id))
+        .where(Account.is_archived.is_(False))
+        .group_by(Account.user_id)
+    )
     for user_id, count in accounts_result.all():
         stats[user_id].accounts_count = count
 
@@ -44,6 +49,17 @@ async def get_user_stats(session: AsyncSession) -> dict[int, UserStats]:
         stats[user_id].net_worth = cash_by_user.get(user_id, Decimal("0")) + asset_by_user.get(user_id, Decimal("0"))
 
     return dict(stats)
+
+
+async def get_user_currencies(session: AsyncSession) -> dict[int, str]:
+    """Each user's own display currency (AppSettings.currency) — needed so
+    the admin list formats a user's net worth in THEIR currency, not the
+    viewing admin's. This app has no currency conversion anywhere (see
+    AppSettings' own docstring) — currency is a display label, and using
+    the wrong one silently mislabels the number rather than merely
+    reformatting it."""
+    result = await session.execute(select(AppSettings.user_id, AppSettings.currency))
+    return dict(result.all())
 
 
 async def _cash_totals_by_user(session: AsyncSession) -> dict[int, Decimal]:

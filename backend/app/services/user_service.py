@@ -10,13 +10,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.refresh_token import RefreshToken
 from app.models.user import User
 from app.schemas.user import AdminUserRead, UserUpdate
-from app.services.admin_stats_service import UserStats, get_user_stats
+from app.services.admin_stats_service import UserStats, get_user_currencies, get_user_stats
 
 
 async def list_users(session: AsyncSession) -> list[AdminUserRead]:
     result = await session.execute(select(User).order_by(User.created_at))
     users = list(result.scalars().all())
     stats = await get_user_stats(session)
+    currencies = await get_user_currencies(session)
     empty_stats = UserStats()
     return [
         AdminUserRead(
@@ -29,6 +30,7 @@ async def list_users(session: AsyncSession) -> list[AdminUserRead]:
             accounts_count=stats.get(user.id, empty_stats).accounts_count,
             transactions_count=stats.get(user.id, empty_stats).transactions_count,
             net_worth=stats.get(user.id, empty_stats).net_worth,
+            currency=currencies.get(user.id, "USD"),
         )
         for user in users
     ]

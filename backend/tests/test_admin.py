@@ -145,6 +145,7 @@ async def test_admin_list_includes_per_user_stats(client, test_sessionmaker):
     assert target["accounts_count"] == 1
     assert target["transactions_count"] == 1
     assert Decimal(str(target["net_worth"])) == Decimal("500.00")
+    assert target["currency"] == "USD"
 
     # A user with zero accounts/transactions/assets still gets zeroed
     # stats, not a missing key or a crash — and critically, does NOT show

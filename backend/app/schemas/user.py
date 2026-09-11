@@ -30,3 +30,4 @@ class AdminUserRead(UserRead):
     accounts_count: int
     transactions_count: int
     net_worth: Decimal
+    currency: str

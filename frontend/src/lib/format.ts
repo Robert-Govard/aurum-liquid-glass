@@ -87,10 +87,11 @@ export function formatTransactionDate(isoDate: string, includeYear = false): str
   }).format(date);
 }
 
-/** Full date for admin-only contexts (registration date, last login) —
- * unlike formatTransactionDate, takes a full ISO datetime (already has a
- * time component), not a date-only string. */
-export function formatDateTime(isoDateTime: string): string {
+/** Full date (no time-of-day) for admin-only contexts (registration date,
+ * last login) — unlike formatTransactionDate, takes a full ISO datetime
+ * as input (it just doesn't render the time portion), not a date-only
+ * string. */
+export function formatFullDate(isoDateTime: string): string {
   return new Intl.DateTimeFormat(getIntlLocale(), {
     year: "numeric",
     month: "short",

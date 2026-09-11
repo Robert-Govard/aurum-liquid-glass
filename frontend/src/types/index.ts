@@ -36,6 +36,7 @@ export interface AdminUser {
   accounts_count: number;
   transactions_count: number;
   net_worth: string;
+  currency: string;
 }
 
 export interface Category {

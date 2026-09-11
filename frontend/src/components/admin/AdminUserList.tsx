@@ -1,6 +1,6 @@
 import { Trash2 } from "lucide-react";
 import { Switch } from "@/components/ui/Switch";
-import { formatCurrency, formatDateTime, pluralizeRu } from "@/lib/format";
+import { formatCurrency, formatFullDate, pluralizeRu } from "@/lib/format";
 import { useTranslation, type Language } from "@/lib/i18n";
 import type { AdminUser } from "@/types";
 
@@ -36,7 +36,7 @@ export function AdminUserList({ items, currentUserId, onToggleActive, onDelete }
           <li key={user.id} className={`flex flex-wrap items-center gap-3 py-3 ${!user.is_active ? "opacity-50" : ""}`}>
             <span className="min-w-0 flex-1">
               <span className="flex flex-wrap items-center gap-1.5 text-sm font-medium text-text-primary">
-                <span className="truncate">{user.email}</span>
+                <span className="min-w-0 truncate">{user.email}</span>
                 {user.is_admin && (
                   <span className="shrink-0 rounded bg-surface-2 px-1 py-0.5 text-[10px] leading-none text-text-muted">
                     {t("admin.adminBadge")}
@@ -49,10 +49,10 @@ export function AdminUserList({ items, currentUserId, onToggleActive, onDelete }
                 )}
               </span>
               <span className="block text-xs text-text-muted">
-                {t("admin.registeredOn", { date: formatDateTime(user.created_at) })}
+                {t("admin.registeredOn", { date: formatFullDate(user.created_at) })}
                 {" · "}
                 {user.last_login_at
-                  ? t("admin.lastLoginOn", { date: formatDateTime(user.last_login_at) })
+                  ? t("admin.lastLoginOn", { date: formatFullDate(user.last_login_at) })
                   : t("admin.neverLoggedIn")}
               </span>
               <span className="block text-xs text-text-muted">
@@ -60,7 +60,7 @@ export function AdminUserList({ items, currentUserId, onToggleActive, onDelete }
                 {", "}
                 {user.transactions_count} {transactionsCountLabel(user.transactions_count, language)}
                 {" · "}
-                {t("admin.netWorthLabel", { amount: formatCurrency(user.net_worth) })}
+                {t("admin.netWorthLabel", { amount: formatCurrency(user.net_worth, user.currency) })}
               </span>
             </span>
             {!isSelf && (
