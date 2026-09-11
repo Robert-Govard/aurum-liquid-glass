@@ -1,15 +1,11 @@
-import { LogOut, Menu } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { useLocation } from "react-router-dom";
 import { NAV_ITEMS } from "@/lib/navigation";
 import { useTranslation } from "@/lib/i18n";
 import { glassSurfaceClass } from "@/components/ui/GlassSurface";
 import { logout, useAuthState } from "@/lib/auth";
 
-interface TopbarProps {
-  onOpenMobileNav: () => void;
-}
-
-export function Topbar({ onOpenMobileNav }: TopbarProps) {
+export function Topbar() {
   const location = useLocation();
   const { t } = useTranslation();
   const { user, accessToken } = useAuthState();
@@ -17,14 +13,6 @@ export function Topbar({ onOpenMobileNav }: TopbarProps) {
 
   return (
     <header className={glassSurfaceClass("sticky top-0 z-30 flex items-center gap-3 border-b border-glass-border px-4 py-3.5 sm:px-6 lg:px-8")}>
-      <button
-        type="button"
-        onClick={onOpenMobileNav}
-        aria-label={t("topbar.openMenu")}
-        className="rounded-md p-1.5 text-text-secondary hover:bg-surface-2 lg:hidden"
-      >
-        <Menu size={20} />
-      </button>
       <h1 className="text-lg font-semibold text-text-primary">{activeItem ? t(activeItem.labelKey) : "Aurum"}</h1>
       {accessToken && (
         // Gated on accessToken (not user) — login()/register() in auth.ts
@@ -37,10 +25,10 @@ export function Topbar({ onOpenMobileNav }: TopbarProps) {
         // waits for `user` to actually be populated.
         <div className="ml-auto flex min-w-0 items-center gap-2">
           {/* Hidden below sm: the header is already tight on a phone
-              screen with the hamburger button and page title, and the
-              logout icon alone is enough to act on there — the email is a
-              nice-to-have identity check, not something a mobile user
-              needs visible at all times. */}
+              screen with the page title, and the logout icon alone is
+              enough to act on there — the email is a nice-to-have
+              identity check, not something a mobile user needs visible
+              at all times. */}
           {user && (
             <span className="hidden truncate text-xs text-text-muted sm:inline" title={user.email}>
               {user.email}

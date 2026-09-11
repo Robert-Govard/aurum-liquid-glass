@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Route, Routes } from "react-router-dom";
+import { MobileTabBar } from "@/components/layout/MobileTabBar";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
 import { useEdgeSwipeBack } from "@/hooks/useEdgeSwipeBack";
@@ -25,7 +26,6 @@ import { TransactionsPage } from "@/pages/TransactionsPage";
 
 export default function App() {
   const [collapsed, setCollapsed] = useLocalStorageState("aurum:sidebar-collapsed", false);
-  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   useEdgeSwipeBack(useIsMobileViewport());
 
   // Primary currency is server-persisted, unlike language — sync the
@@ -56,15 +56,10 @@ export default function App() {
         <div className="absolute -top-32 right-0 h-[28rem] w-[28rem] rounded-full bg-series-1/16 blur-2xl" />
         <div className="absolute -bottom-32 -left-32 h-[28rem] w-[28rem] rounded-full bg-series-1/14 blur-2xl" />
       </div>
-      <Sidebar
-        collapsed={collapsed}
-        onToggleCollapsed={() => setCollapsed(!collapsed)}
-        mobileOpen={mobileNavOpen}
-        onCloseMobile={() => setMobileNavOpen(false)}
-      />
+      <Sidebar collapsed={collapsed} onToggleCollapsed={() => setCollapsed(!collapsed)} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar onOpenMobileNav={() => setMobileNavOpen(true)} />
-        <main className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
+        <Topbar />
+        <main className="mx-auto w-full max-w-6xl px-4 py-5 pb-[calc(4.5rem+var(--safe-area-bottom))] sm:px-6 sm:py-6 lg:px-8 lg:pb-6">
           <Routes>
             <Route path="/" element={<DashboardPage />} />
             <Route path="/net-worth" element={<NetWorthPage />} />
@@ -84,6 +79,7 @@ export default function App() {
           </Routes>
         </main>
       </div>
+      <MobileTabBar />
     </div>
   );
 }

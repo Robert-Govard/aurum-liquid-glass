@@ -25,9 +25,6 @@ const ru = {
   "sidebar.collapse": "Свернуть",
   "sidebar.collapseMenu": "Свернуть меню",
   "sidebar.expandMenu": "Развернуть меню",
-  "sidebar.closeMenu": "Закрыть меню",
-
-  "topbar.openMenu": "Открыть меню",
 
   "common.loading": "Загрузка…",
   "common.expand": "Развернуть",
@@ -537,9 +534,6 @@ const en: Record<keyof typeof ru, string> = {
   "sidebar.collapse": "Collapse",
   "sidebar.collapseMenu": "Collapse menu",
   "sidebar.expandMenu": "Expand menu",
-  "sidebar.closeMenu": "Close menu",
-
-  "topbar.openMenu": "Open menu",
 
   "common.loading": "Loading…",
   "common.expand": "Expand",
