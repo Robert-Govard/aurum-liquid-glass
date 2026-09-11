@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Dialog } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
-import { Input, Label, Select } from "@/components/ui/Input";
+import { Input, Label } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
 import { useAddAssetValuation, useCreateAsset, useUpdateAsset } from "@/hooks/useAssets";
 import { useTranslation, type TranslationKey } from "@/lib/i18n";
 import type { Asset, AssetClass, CapitalRole, RiskLevel } from "@/types";

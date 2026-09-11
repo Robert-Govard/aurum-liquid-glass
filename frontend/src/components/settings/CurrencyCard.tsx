@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
-import { Select } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
 import { useTranslation } from "@/lib/i18n";
 import { CURRENCIES, getCurrencyLabel } from "@/lib/currency";
 import { useAppSettings, useUpdateAppSettings } from "@/hooks/useSettings";

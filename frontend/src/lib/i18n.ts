@@ -43,6 +43,7 @@ const ru = {
   "common.totalCount": "{{count}} всего",
   "common.perMonth": "/мес",
   "common.allShort": "Всё",
+  "common.select": "Выбрать",
 
   "auth.subtitle": "Личные финансы",
   "auth.emailLabel": "Email",
@@ -552,6 +553,7 @@ const en: Record<keyof typeof ru, string> = {
   "common.totalCount": "{{count}} total",
   "common.perMonth": "/mo",
   "common.allShort": "All",
+  "common.select": "Select",
 
   "auth.subtitle": "Personal finance",
   "auth.emailLabel": "Email",
