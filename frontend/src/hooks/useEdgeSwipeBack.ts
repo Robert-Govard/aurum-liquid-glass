@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { useNavigate, useNavigationType } from "react-router-dom";
+import { useLocation, useNavigate, useNavigationType } from "react-router-dom";
 
 const EDGE_ZONE_PX = 24;
 const SWIPE_THRESHOLD_PX = 80;
@@ -14,12 +14,19 @@ const SWIPE_THRESHOLD_PX = 80;
 export function useEdgeSwipeBack(enabled: boolean): void {
   const navigate = useNavigate();
   const navigationType = useNavigationType();
+  const location = useLocation();
   const depthRef = useRef(0);
 
   useEffect(() => {
     if (navigationType === "PUSH") depthRef.current += 1;
     else if (navigationType === "POP") depthRef.current = Math.max(0, depthRef.current - 1);
-  }, [navigationType]);
+    // REPLACE: leave depth unchanged. Keyed on location.key (not just
+    // navigationType) because React Router gives every history entry a
+    // unique key, including consecutive entries of the same navigation
+    // type — keying on navigationType alone made React skip this effect
+    // on two PUSHes or two POPs in a row (Object.is-equal dependency),
+    // desyncing depthRef from the real history depth. Found in review.
+  }, [location.key, navigationType]);
 
   useEffect(() => {
     if (!enabled) return;
