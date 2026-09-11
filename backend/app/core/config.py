@@ -42,6 +42,24 @@ class Settings(BaseSettings):
     # anyone.
     jwt_secret: str = "change-me-in-production"
 
+    # Outbound SMTP for transactional email — currently only the
+    # verification link sent by services/email_service.py. Empty host is
+    # the same "feature just doesn't run" convention as coingecko_api_key
+    # above: registration still works, the email is skipped (logged
+    # instead of sent), nothing else breaks — but nobody can actually log
+    # in afterward without it configured, since verification is mandatory.
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from: str = ""
+    smtp_use_tls: bool = True
+    # Public base URL this instance is reachable at (e.g.
+    # https://robertaurum.mooo.com:8443) — used to build the link inside
+    # the verification email. Every self-hosted install has a different
+    # one, so there's no sane default.
+    public_url: str = ""
+
     @property
     def database_url(self) -> str:
         return (
