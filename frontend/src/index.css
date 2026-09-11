@@ -36,6 +36,14 @@
   --series-7: #4a3aa7; /* violet */
   --series-8: #e34948; /* red */
   --series-other: #898781;
+
+  /* Отступы под системные элементы (вырез/жестовая полоса) — используются
+     нижним таб-баром (MobileTabBar) и контентной областью на мобильной
+     ширине. env() возвращает 0px там, где инсетов нет (обычный браузер),
+     так что применять эти токены безопасно всегда, а не только в
+     Android-приложении. */
+  --safe-area-top: env(safe-area-inset-top, 0px);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 @media (prefers-color-scheme: dark) {

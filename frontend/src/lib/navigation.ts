@@ -41,3 +41,9 @@ export const NAV_ITEMS: NavItem[] = [
   { labelKey: "nav.advice", to: "/advice", icon: Lightbulb },
   { labelKey: "nav.settings", to: "/settings", icon: Settings },
 ];
+
+/** Порядок путей для нижнего таб-бара на мобильной ширине (<lg) — первые
+ * 4 пункта видны напрямую как вкладки, остальные NAV_ITEMS доступны через
+ * вкладку "Ещё" (см. components/layout/MobileTabBar.tsx). Порядок в этом
+ * массиве — порядок вкладок слева направо, а не порядок в NAV_ITEMS. */
+export const MOBILE_TAB_PATHS: string[] = ["/", "/transactions", "/budget", "/accounts"];

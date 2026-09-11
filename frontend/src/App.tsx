@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Route, Routes } from "react-router-dom";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
+import { useEdgeSwipeBack } from "@/hooks/useEdgeSwipeBack";
+import { useIsMobileViewport } from "@/hooks/useIsMobileViewport";
 import { useLocalStorageState } from "@/hooks/useLocalStorageState";
 import { useAppSettings } from "@/hooks/useSettings";
 import { setCurrency } from "@/lib/i18n";
@@ -24,6 +26,7 @@ import { TransactionsPage } from "@/pages/TransactionsPage";
 export default function App() {
   const [collapsed, setCollapsed] = useLocalStorageState("aurum:sidebar-collapsed", false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  useEdgeSwipeBack(useIsMobileViewport());
 
   // Primary currency is server-persisted, unlike language — sync the
   // client-side reactive mirror (lib/i18n's getCurrency/formatCurrency)

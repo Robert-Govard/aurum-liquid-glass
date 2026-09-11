@@ -19,6 +19,7 @@ const ru = {
   "nav.goals": "Цели",
   "nav.advice": "Советы",
   "nav.settings": "Настройки",
+  "nav.more": "Ещё",
   "nav.comingSoon": "скоро",
 
   "sidebar.collapse": "Свернуть",
@@ -530,6 +531,7 @@ const en: Record<keyof typeof ru, string> = {
   "nav.goals": "Goals",
   "nav.advice": "Advice",
   "nav.settings": "Settings",
+  "nav.more": "More",
   "nav.comingSoon": "soon",
 
   "sidebar.collapse": "Collapse",
