@@ -1,6 +1,8 @@
 import { type ReactNode, useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { Logo } from "@/components/layout/Logo";
 import { AuthScreen } from "@/components/auth/AuthScreen";
+import { VerifyEmailScreen } from "@/components/auth/VerifyEmailScreen";
 import { bootstrap, useAuthState } from "@/lib/auth";
 
 type Phase = "bootstrapping" | "ready";
@@ -15,6 +17,7 @@ type Phase = "bootstrapping" | "ready";
 export function LoginGate({ children }: { children: ReactNode }) {
   const { accessToken } = useAuthState();
   const [phase, setPhase] = useState<Phase>("bootstrapping");
+  const location = useLocation();
 
   useEffect(() => {
     let cancelled = false;
@@ -39,7 +42,7 @@ export function LoginGate({ children }: { children: ReactNode }) {
   }
 
   if (!accessToken) {
-    return <AuthScreen />;
+    return location.pathname === "/verify-email" ? <VerifyEmailScreen /> : <AuthScreen />;
   }
 
   return <>{children}</>;

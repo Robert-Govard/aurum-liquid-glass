@@ -15,6 +15,7 @@ const ERROR_KEYS: Partial<Record<Status, string>> = {
   email_taken: "auth.errorEmailTaken",
   error: "auth.errorGeneric",
   unreachable: "auth.errorUnreachable",
+  email_not_verified: "auth.errorEmailNotVerified",
 };
 
 /** Shown by LoginGate whenever there's no live session — collects an
@@ -84,6 +85,9 @@ export function AuthScreen() {
               {mode === "register" && <p className="mt-1 text-xs text-text-muted">{t("auth.passwordHint")}</p>}
             </div>
 
+            {status === "verify_email_sent" && (
+              <p className="text-sm text-text-secondary">{t("auth.verifyEmailSent")}</p>
+            )}
             {errorKey && <p className="text-sm text-danger">{t(errorKey as Parameters<typeof t>[0])}</p>}
 
             <Button type="submit" className="w-full" disabled={status === "submitting"}>
@@ -100,6 +104,19 @@ export function AuthScreen() {
           >
             {t(mode === "login" ? "auth.switchToRegister" : "auth.switchToLogin")}
           </button>
+
+          {status === "email_not_verified" && (
+            <button
+              type="button"
+              onClick={async () => {
+                setStatus("submitting");
+                setStatus(await register(email, password));
+              }}
+              className="text-xs text-text-secondary underline-offset-2 hover:underline"
+            >
+              {t("auth.resendVerification")}
+            </button>
+          )}
 
           {isNative() && (
             // Native-only escape hatch: Settings (where "change server"
