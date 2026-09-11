@@ -53,7 +53,11 @@ async def register(
     existing = result.scalar_one_or_none()
 
     if existing is not None:
-        if existing.is_email_verified or not verify_password(payload.password, existing.password_hash):
+        if (
+            existing.is_email_verified
+            or not existing.is_active
+            or not verify_password(payload.password, existing.password_hash)
+        ):
             # Same response whether the email is already verified or the
             # password just doesn't match this unverified account —
             # otherwise the response would let a caller tell verified
@@ -97,10 +101,18 @@ async def login(session: AsyncSession, email: str, password: str) -> TokenPair:
 async def verify_email(session: AsyncSession, raw_token: str) -> TokenPair:
     token_hash = hash_token(raw_token)
     now = datetime.now(timezone.utc)
+    # `is_active` folded into this same query, the same way refresh()'s
+    # `active_user_ids` subquery below folds it into its own UPDATE — a
+    # disabled user's verification token must stop working immediately
+    # (an admin-disable must not be bypassable by finishing an in-flight
+    # signup), and matching zero rows here reuses the existing "invalid or
+    # expired" 400 below rather than a separate check-then-branch that
+    # could leak whether a given token belongs to a disabled account.
     result = await session.execute(
         select(User).where(
             User.email_verification_token_hash == token_hash,
             User.email_verification_expires_at >= now,
+            User.is_active.is_(True),
         )
     )
     user = result.scalar_one_or_none()

@@ -339,3 +339,30 @@ async def test_verify_email_with_expired_token_fails(client, test_sessionmaker, 
 
     resp = await client.post("/auth/verify-email", json={"token": captured["token"]})
     assert resp.status_code == 400
+
+
+async def test_verify_email_rejects_disabled_account(client, test_sessionmaker, monkeypatch):
+    captured: dict[str, str] = {}
+    monkeypatch.setattr(
+        "app.services.auth_service.send_verification_email",
+        lambda to_email, token: captured.update(token=token),
+    )
+    await client.post("/auth/register", json={"email": "disabled@example.com", "password": "hunter22"})
+    async with test_sessionmaker() as session:
+        await session.execute(update(User).where(User.email == "disabled@example.com").values(is_active=False))
+        await session.commit()
+
+    resp = await client.post("/auth/verify-email", json={"token": captured["token"]})
+    assert resp.status_code == 400
+
+
+async def test_register_resend_rejects_disabled_account_same_as_verified(client, test_sessionmaker):
+    await client.post("/auth/register", json={"email": "disabledresend@example.com", "password": "hunter22"})
+    async with test_sessionmaker() as session:
+        await session.execute(
+            update(User).where(User.email == "disabledresend@example.com").values(is_active=False)
+        )
+        await session.commit()
+
+    resp = await client.post("/auth/register", json={"email": "disabledresend@example.com", "password": "hunter22"})
+    assert resp.status_code == 409
