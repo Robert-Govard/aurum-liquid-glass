@@ -16,6 +16,14 @@ class RefreshRequest(BaseModel):
     refresh_token: str
 
 
+class VerifyEmailRequest(BaseModel):
+    token: str
+
+
+class MessageResponse(BaseModel):
+    message: str
+
+
 class TokenPair(BaseModel):
     access_token: str
     refresh_token: str

@@ -18,13 +18,14 @@ from pathlib import Path
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import text
+from sqlalchemy import text, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.api.deps import get_session
 from app.core.config import get_settings
 from app.db.base import Base
 from app.main import app
+from app.models.user import User
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 TEST_DB_NAME = "aurum_test"
@@ -113,7 +114,22 @@ async def client(test_sessionmaker) -> AsyncGenerator[AsyncClient, None]:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test/api") as ac:
         register_resp = await ac.post("/auth/register", json={"email": "test@example.com", "password": "hunter22"})
-        token = register_resp.json()["access_token"]
+        assert register_resp.status_code == 201, register_resp.text
+
+        # Registration alone no longer creates a session — a real account
+        # needs its email verified first (see services/auth_service.py).
+        # Flip it directly here rather than actually sending/reading an
+        # email: this fixture just needs a working default user, not a
+        # test of the verification flow itself (see test_auth.py for that).
+        async with test_sessionmaker() as session:
+            await session.execute(
+                update(User).where(User.email == "test@example.com").values(is_email_verified=True)
+            )
+            await session.commit()
+
+        login_resp = await ac.post("/auth/login", json={"email": "test@example.com", "password": "hunter22"})
+        assert login_resp.status_code == 200, login_resp.text
+        token = login_resp.json()["access_token"]
         ac.headers["Authorization"] = f"Bearer {token}"
         yield ac
     app.dependency_overrides.clear()

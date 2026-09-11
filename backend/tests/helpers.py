@@ -26,9 +26,31 @@ async def register_user(client, email: str, password: str = "hunter22") -> dict:
     """Registers a second user for an isolation test (the `client` fixture
     already auto-registers and authenticates as one default user — use
     this to bring in another one and compare what each can/can't see).
-    Returns the /auth/register response body (access_token, refresh_token,
-    token_type)."""
-    resp = await client.post("/auth/register", json={"email": email, "password": password})
+    Returns a real TokenPair dict (access_token, refresh_token, token_type)
+    for that user: registration alone no longer creates a session (see
+    services/auth_service.py), so this bypasses actually sending/reading a
+    verification email by flipping is_email_verified directly in the test
+    database — an ad-hoc engine, not the `test_sessionmaker` fixture, so
+    every one of this helper's call sites keeps working unchanged — then
+    logs in for real, same trick as conftest.py's `client` fixture uses
+    for its own default user."""
+    from sqlalchemy import update
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+    from app.models.user import User
+    from tests.conftest import TEST_DB_NAME, _url
+
+    await client.post("/auth/register", json={"email": email, "password": password})
+
+    engine = create_async_engine(_url(TEST_DB_NAME))
+    try:
+        async with async_sessionmaker(bind=engine, expire_on_commit=False)() as session:
+            await session.execute(update(User).where(User.email == email).values(is_email_verified=True))
+            await session.commit()
+    finally:
+        await engine.dispose()
+
+    resp = await client.post("/auth/login", json={"email": email, "password": password})
     return resp.json()
 
 

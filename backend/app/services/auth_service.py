@@ -1,9 +1,11 @@
-"""Registration/login/token-refresh/logout — the only place that issues or
-revokes tokens; routes/auth.py stays a thin HTTP wrapper around this."""
-from datetime import datetime, timezone
+"""Registration/login/token-refresh/logout/email-verification — the only
+place that issues or revokes tokens; routes/auth.py stays a thin HTTP
+wrapper around this."""
+import secrets
+from datetime import datetime, timedelta, timezone
 
 import jwt
-from fastapi import HTTPException
+from fastapi import BackgroundTasks, HTTPException
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,7 +20,10 @@ from app.core.security import (
 from app.db.seed import seed_default_app_settings, seed_default_categories
 from app.models.refresh_token import RefreshToken
 from app.models.user import User
-from app.schemas.auth import RegisterRequest, TokenPair
+from app.schemas.auth import MessageResponse, RegisterRequest, TokenPair
+from app.services.email_service import send_verification_email
+
+EMAIL_VERIFICATION_TOKEN_TTL = timedelta(hours=24)
 
 
 async def _issue_token_pair(session: AsyncSession, user_id: int) -> TokenPair:
@@ -29,19 +34,50 @@ async def _issue_token_pair(session: AsyncSession, user_id: int) -> TokenPair:
     return TokenPair(access_token=access, refresh_token=raw_refresh)
 
 
-async def register(session: AsyncSession, payload: RegisterRequest) -> TokenPair:
-    existing = await session.execute(select(User.id).where(User.email == payload.email))
-    if existing.first() is not None:
-        raise HTTPException(status_code=409, detail="Email already registered")
+def _issue_verification_token(user: User) -> str:
+    """Mutates `user` in place (caller commits) and returns the RAW token
+    to email to the user — only its SHA-256 hash is ever persisted (see
+    core/security.py's hash_token, the same scheme refresh tokens use).
+    A new call always overwrites the previous token: only one verification
+    token is ever outstanding per user."""
+    raw_token = secrets.token_urlsafe(32)
+    user.email_verification_token_hash = hash_token(raw_token)
+    user.email_verification_expires_at = datetime.now(timezone.utc) + EMAIL_VERIFICATION_TOKEN_TTL
+    return raw_token
 
-    user = User(email=payload.email, password_hash=hash_password(payload.password), last_login_at=datetime.now(timezone.utc))
+
+async def register(
+    session: AsyncSession, payload: RegisterRequest, background_tasks: BackgroundTasks
+) -> MessageResponse:
+    result = await session.execute(select(User).where(User.email == payload.email))
+    existing = result.scalar_one_or_none()
+
+    if existing is not None:
+        if existing.is_email_verified or not verify_password(payload.password, existing.password_hash):
+            # Same response whether the email is already verified or the
+            # password just doesn't match this unverified account —
+            # otherwise the response would let a caller tell verified
+            # accounts apart from unverified ones by trying a password.
+            raise HTTPException(status_code=409, detail="Email already registered")
+        # Unverified account, correct password: resend instead of 409 —
+        # this is also exactly what the frontend's "send again" button
+        # calls (see spec: no separate resend endpoint).
+        raw_token = _issue_verification_token(existing)
+        await session.commit()
+        background_tasks.add_task(send_verification_email, existing.email, raw_token)
+        return MessageResponse(message="Verification email sent")
+
+    user = User(email=payload.email, password_hash=hash_password(payload.password))
     session.add(user)
     await session.flush()  # assigns user.id without ending the transaction
 
     await seed_default_categories(session, user.id)
     await seed_default_app_settings(session, user.id)
 
-    return await _issue_token_pair(session, user.id)
+    raw_token = _issue_verification_token(user)
+    await session.commit()
+    background_tasks.add_task(send_verification_email, user.email, raw_token)
+    return MessageResponse(message="Verification email sent")
 
 
 async def login(session: AsyncSession, email: str, password: str) -> TokenPair:
@@ -49,7 +85,36 @@ async def login(session: AsyncSession, email: str, password: str) -> TokenPair:
     user = result.scalar_one_or_none()
     if user is None or not user.is_active or not verify_password(password, user.password_hash):
         raise HTTPException(status_code=401, detail="Incorrect email or password")
+    if not user.is_email_verified:
+        # Checked AFTER the password check on purpose — a wrong password on
+        # an unverified account must still look like a generic 401, not
+        # hint that the account exists but isn't verified yet.
+        raise HTTPException(status_code=403, detail="Email not verified")
     user.last_login_at = datetime.now(timezone.utc)
+    return await _issue_token_pair(session, user.id)
+
+
+async def verify_email(session: AsyncSession, raw_token: str) -> TokenPair:
+    token_hash = hash_token(raw_token)
+    now = datetime.now(timezone.utc)
+    result = await session.execute(
+        select(User).where(
+            User.email_verification_token_hash == token_hash,
+            User.email_verification_expires_at >= now,
+        )
+    )
+    user = result.scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status_code=400, detail="Invalid or expired verification token")
+
+    user.is_email_verified = True
+    user.email_verification_token_hash = None
+    user.email_verification_expires_at = None
+    # The only place a brand-new user's last_login_at gets set for the
+    # first time — register() no longer counts as a login since it no
+    # longer issues a session; this does, immediately (see spec: "перешёл
+    # по ссылке — и уже внутри приложения").
+    user.last_login_at = now
     return await _issue_token_pair(session, user.id)
 
 

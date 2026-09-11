@@ -4,11 +4,7 @@ from decimal import Decimal
 from sqlalchemy import update
 
 from app.models.user import User
-
-
-async def _register(client, email: str) -> dict:
-    resp = await client.post("/auth/register", json={"email": email, "password": "hunter22"})
-    return resp.json()
+from tests.helpers import register_user as _register
 
 
 async def _make_admin(test_sessionmaker, email: str) -> None:

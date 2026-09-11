@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 import jwt as pyjwt
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from app.core.config import get_settings
 from app.core import security
@@ -71,12 +71,10 @@ def test_access_token_rejected_by_decode_refresh_token():
         security.decode_refresh_token(access)
 
 
-async def test_register_returns_token_pair(client):
+async def test_register_returns_message_response(client):
     resp = await client.post("/auth/register", json={"email": "a@example.com", "password": "hunter22"})
     assert resp.status_code == 201
-    body = resp.json()
-    assert body["token_type"] == "bearer"
-    assert body["access_token"] and body["refresh_token"]
+    assert resp.json() == {"message": "Verification email sent"}
 
 
 async def test_register_rejects_duplicate_email(client):
@@ -85,11 +83,46 @@ async def test_register_rejects_duplicate_email(client):
     assert resp.status_code == 409
 
 
-async def test_login_with_correct_password(client):
+async def test_register_rejects_duplicate_verified_email(client, test_sessionmaker):
+    await client.post("/auth/register", json={"email": "verified@example.com", "password": "hunter22"})
+    async with test_sessionmaker() as session:
+        await session.execute(
+            update(User).where(User.email == "verified@example.com").values(is_email_verified=True)
+        )
+        await session.commit()
+
+    resp = await client.post("/auth/register", json={"email": "verified@example.com", "password": "hunter22"})
+    assert resp.status_code == 409
+
+
+async def test_register_resend_for_unverified_email_with_correct_password(client, test_sessionmaker):
+    first = await client.post("/auth/register", json={"email": "resend@example.com", "password": "hunter22"})
+    assert first.status_code == 201
+
+    second = await client.post("/auth/register", json={"email": "resend@example.com", "password": "hunter22"})
+    assert second.status_code == 201
+    assert second.json() == {"message": "Verification email sent"}
+
+    async with test_sessionmaker() as session:
+        matches = (await session.execute(select(User).where(User.email == "resend@example.com"))).scalars().all()
+        assert len(matches) == 1  # resend must not create a second account
+
+
+async def test_login_with_correct_password(client, test_sessionmaker):
     await client.post("/auth/register", json={"email": "b@example.com", "password": "hunter22"})
+    async with test_sessionmaker() as session:
+        await session.execute(update(User).where(User.email == "b@example.com").values(is_email_verified=True))
+        await session.commit()
+
     resp = await client.post("/auth/login", json={"email": "b@example.com", "password": "hunter22"})
     assert resp.status_code == 200
     assert resp.json()["access_token"]
+
+
+async def test_login_with_unverified_email_is_rejected(client):
+    await client.post("/auth/register", json={"email": "unverified@example.com", "password": "hunter22"})
+    resp = await client.post("/auth/login", json={"email": "unverified@example.com", "password": "hunter22"})
+    assert resp.status_code == 403
 
 
 async def test_login_with_wrong_password(client):
@@ -103,9 +136,13 @@ async def test_login_with_unknown_email(client):
     assert resp.status_code == 401
 
 
-async def test_refresh_issues_new_pair_and_rotates(client):
-    register_resp = await client.post("/auth/register", json={"email": "d@example.com", "password": "hunter22"})
-    old_refresh = register_resp.json()["refresh_token"]
+async def test_refresh_issues_new_pair_and_rotates(client, test_sessionmaker):
+    await client.post("/auth/register", json={"email": "d@example.com", "password": "hunter22"})
+    async with test_sessionmaker() as session:
+        await session.execute(update(User).where(User.email == "d@example.com").values(is_email_verified=True))
+        await session.commit()
+    login_resp = await client.post("/auth/login", json={"email": "d@example.com", "password": "hunter22"})
+    old_refresh = login_resp.json()["refresh_token"]
 
     refresh_resp = await client.post("/auth/refresh", json={"refresh_token": old_refresh})
     assert refresh_resp.status_code == 200
@@ -126,7 +163,7 @@ async def test_refresh_rejects_garbage_token(client):
     assert resp.status_code == 401
 
 
-async def test_concurrent_refresh_of_the_same_token_only_one_wins(client):
+async def test_concurrent_refresh_of_the_same_token_only_one_wins(client, test_sessionmaker):
     """Regression test for the rotation race: two concurrent presentations
     of the same still-valid refresh token must not both succeed. The
     atomic conditional UPDATE in auth_service.refresh() (WHERE
@@ -134,8 +171,12 @@ async def test_concurrent_refresh_of_the_same_token_only_one_wins(client):
     serializes the two UPDATEs via row locking — the loser's WHERE clause
     finds the row already revoked and matches zero rows, so exactly one
     request gets a new token pair and the other is rejected."""
-    register_resp = await client.post("/auth/register", json={"email": "f@example.com", "password": "hunter22"})
-    old_refresh = register_resp.json()["refresh_token"]
+    await client.post("/auth/register", json={"email": "f@example.com", "password": "hunter22"})
+    async with test_sessionmaker() as session:
+        await session.execute(update(User).where(User.email == "f@example.com").values(is_email_verified=True))
+        await session.commit()
+    login_resp = await client.post("/auth/login", json={"email": "f@example.com", "password": "hunter22"})
+    old_refresh = login_resp.json()["refresh_token"]
 
     first_resp, second_resp = await asyncio.gather(
         client.post("/auth/refresh", json={"refresh_token": old_refresh}),
@@ -146,9 +187,13 @@ async def test_concurrent_refresh_of_the_same_token_only_one_wins(client):
     assert statuses == [200, 401], f"expected exactly one winner and one rejection, got {statuses}"
 
 
-async def test_logout_revokes_the_refresh_token(client):
-    register_resp = await client.post("/auth/register", json={"email": "e@example.com", "password": "hunter22"})
-    refresh_token = register_resp.json()["refresh_token"]
+async def test_logout_revokes_the_refresh_token(client, test_sessionmaker):
+    await client.post("/auth/register", json={"email": "e@example.com", "password": "hunter22"})
+    async with test_sessionmaker() as session:
+        await session.execute(update(User).where(User.email == "e@example.com").values(is_email_verified=True))
+        await session.commit()
+    login_resp = await client.post("/auth/login", json={"email": "e@example.com", "password": "hunter22"})
+    refresh_token = login_resp.json()["refresh_token"]
 
     logout_resp = await client.post("/auth/logout", json={"refresh_token": refresh_token})
     assert logout_resp.status_code == 204
@@ -159,13 +204,11 @@ async def test_logout_revokes_the_refresh_token(client):
 
 async def test_register_seeds_the_new_users_own_categories_and_settings(client, test_sessionmaker):
     resp = await client.post("/auth/register", json={"email": "seeded@example.com", "password": "hunter22"})
-    tokens = resp.json()
-
-    me_resp = await client.get("/auth/me", headers={"Authorization": f"Bearer {tokens['access_token']}"})
-    assert me_resp.status_code == 200
-    user_id = me_resp.json()["id"]
+    assert resp.status_code == 201
 
     async with test_sessionmaker() as session:
+        user_id = (await session.execute(select(User.id).where(User.email == "seeded@example.com"))).scalar_one()
+
         categories = (await session.execute(select(Category).where(Category.user_id == user_id))).scalars().all()
         assert len(categories) == 17  # 8 expense + 9 income, see DEFAULT_*_CATEGORIES in db/seed.py
 
@@ -182,13 +225,32 @@ async def test_get_me_requires_auth(client):
     assert resp.status_code == 401
 
 
-async def test_login_and_register_set_last_login_at(client, test_sessionmaker):
-    resp = await client.post("/auth/register", json={"email": "lastlogin@example.com", "password": "hunter22"})
+async def test_register_does_not_set_last_login_at(client, test_sessionmaker):
+    resp = await client.post("/auth/register", json={"email": "notyetloggedin@example.com", "password": "hunter22"})
     assert resp.status_code == 201
 
     async with test_sessionmaker() as session:
-        result = await session.execute(select(User).where(User.email == "lastlogin@example.com"))
-        user = result.scalar_one()
+        user = (
+            await session.execute(select(User).where(User.email == "notyetloggedin@example.com"))
+        ).scalar_one()
+        assert user.last_login_at is None  # registering alone is not a login anymore
+
+
+async def test_verify_email_and_subsequent_login_set_last_login_at(client, test_sessionmaker, monkeypatch):
+    captured: dict[str, str] = {}
+    monkeypatch.setattr(
+        "app.services.auth_service.send_verification_email",
+        lambda to_email, token: captured.update(token=token),
+    )
+
+    await client.post("/auth/register", json={"email": "lastlogin@example.com", "password": "hunter22"})
+    assert "token" in captured
+
+    verify_resp = await client.post("/auth/verify-email", json={"token": captured["token"]})
+    assert verify_resp.status_code == 200
+
+    async with test_sessionmaker() as session:
+        user = (await session.execute(select(User).where(User.email == "lastlogin@example.com"))).scalar_one()
         assert user.last_login_at is not None
         first_login = user.last_login_at
 
@@ -196,28 +258,84 @@ async def test_login_and_register_set_last_login_at(client, test_sessionmaker):
     assert login_resp.status_code == 200
 
     async with test_sessionmaker() as session:
-        result = await session.execute(select(User).where(User.email == "lastlogin@example.com"))
-        user = result.scalar_one()
+        user = (await session.execute(select(User).where(User.email == "lastlogin@example.com"))).scalar_one()
         assert user.last_login_at is not None
         assert user.last_login_at >= first_login
 
 
-async def test_get_me_returns_the_callers_own_email(client):
-    # NOTE: the task-3 brief's version of this test called `client.get("/auth/me")`
-    # with no explicit token, relying on the `client` fixture setting a default
-    # Authorization header for its one auto-registered user. That default header
-    # is only added in Task 4's conftest.py rewrite (tests/helpers.py /
-    # conftest.py are explicitly out of scope for this task — see task-3-brief.md
-    # step 4/task-4-brief.md step 1) — today's `client` fixture sends no
-    # Authorization header at all. Registering explicitly here keeps this test
-    # passing now instead of silently depending on infrastructure that doesn't
-    # exist yet; it verifies the same thing (`/auth/me` returns the caller's own
-    # email, never the password/hash).
-    register_resp = await client.post("/auth/register", json={"email": "whoami@example.com", "password": "hunter22"})
-    token = register_resp.json()["access_token"]
+async def test_get_me_returns_the_callers_own_email(client, test_sessionmaker):
+    # Registers, verifies, and logs in explicitly rather than relying on
+    # the `client` fixture's own default user — this test is specifically
+    # about what /auth/me returns for an arbitrary caller's own token, not
+    # about the fixture's default identity.
+    await client.post("/auth/register", json={"email": "whoami@example.com", "password": "hunter22"})
+    async with test_sessionmaker() as session:
+        await session.execute(update(User).where(User.email == "whoami@example.com").values(is_email_verified=True))
+        await session.commit()
+    login_resp = await client.post("/auth/login", json={"email": "whoami@example.com", "password": "hunter22"})
+    token = login_resp.json()["access_token"]
 
     resp = await client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
     assert resp.status_code == 200
     body = resp.json()
     assert "email" in body
     assert "password" not in body and "password_hash" not in body
+
+
+async def test_verify_email_with_valid_token_returns_a_token_pair(client, monkeypatch):
+    captured: dict[str, str] = {}
+    monkeypatch.setattr(
+        "app.services.auth_service.send_verification_email",
+        lambda to_email, token: captured.update(token=token),
+    )
+
+    await client.post("/auth/register", json={"email": "verify@example.com", "password": "hunter22"})
+    assert "token" in captured
+
+    resp = await client.post("/auth/verify-email", json={"token": captured["token"]})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["access_token"] and body["refresh_token"]
+
+
+async def test_verify_email_marks_the_account_verified_and_clears_the_token(client, test_sessionmaker, monkeypatch):
+    captured: dict[str, str] = {}
+    monkeypatch.setattr(
+        "app.services.auth_service.send_verification_email",
+        lambda to_email, token: captured.update(token=token),
+    )
+
+    await client.post("/auth/register", json={"email": "verify2@example.com", "password": "hunter22"})
+    await client.post("/auth/verify-email", json={"token": captured["token"]})
+
+    async with test_sessionmaker() as session:
+        user = (await session.execute(select(User).where(User.email == "verify2@example.com"))).scalar_one()
+        assert user.is_email_verified is True
+        assert user.email_verification_token_hash is None
+        assert user.email_verification_expires_at is None
+
+
+async def test_verify_email_with_unknown_token_fails(client):
+    resp = await client.post("/auth/verify-email", json={"token": "not-a-real-token"})
+    assert resp.status_code == 400
+
+
+async def test_verify_email_with_expired_token_fails(client, test_sessionmaker, monkeypatch):
+    captured: dict[str, str] = {}
+    monkeypatch.setattr(
+        "app.services.auth_service.send_verification_email",
+        lambda to_email, token: captured.update(token=token),
+    )
+
+    await client.post("/auth/register", json={"email": "expired@example.com", "password": "hunter22"})
+
+    async with test_sessionmaker() as session:
+        await session.execute(
+            update(User)
+            .where(User.email == "expired@example.com")
+            .values(email_verification_expires_at=datetime.now(timezone.utc) - timedelta(hours=1))
+        )
+        await session.commit()
+
+    resp = await client.post("/auth/verify-email", json={"token": captured["token"]})
+    assert resp.status_code == 400

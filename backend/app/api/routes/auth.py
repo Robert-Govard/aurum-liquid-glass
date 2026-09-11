@@ -1,18 +1,34 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_session
 from app.models.user import User
-from app.schemas.auth import LoginRequest, RefreshRequest, RegisterRequest, TokenPair
+from app.schemas.auth import (
+    LoginRequest,
+    MessageResponse,
+    RefreshRequest,
+    RegisterRequest,
+    TokenPair,
+    VerifyEmailRequest,
+)
 from app.schemas.user import UserRead
-from app.services.auth_service import login, logout, refresh, register
+from app.services.auth_service import login, logout, refresh, register, verify_email
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/register", response_model=TokenPair, status_code=201)
-async def register_route(payload: RegisterRequest, session: AsyncSession = Depends(get_session)) -> TokenPair:
-    return await register(session, payload)
+@router.post("/register", response_model=MessageResponse, status_code=201)
+async def register_route(
+    payload: RegisterRequest,
+    background_tasks: BackgroundTasks,
+    session: AsyncSession = Depends(get_session),
+) -> MessageResponse:
+    return await register(session, payload, background_tasks)
+
+
+@router.post("/verify-email", response_model=TokenPair)
+async def verify_email_route(payload: VerifyEmailRequest, session: AsyncSession = Depends(get_session)) -> TokenPair:
+    return await verify_email(session, payload.token)
 
 
 @router.post("/login", response_model=TokenPair)
