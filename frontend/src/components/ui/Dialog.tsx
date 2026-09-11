@@ -33,8 +33,23 @@ export function Dialog({ open, onClose, title, children }: DialogProps) {
   useEffect(() => {
     if (open) {
       setShouldRender(true);
-      const raf = requestAnimationFrame(() => setVisible(true));
-      return () => cancelAnimationFrame(raf);
+      // Двойной rAF, не одинарный: одного кадра недостаточно — эффект
+      // здесь запускается практически сразу после того, как shouldRender
+      // стал true, и браузер часто ещё не успевает отрисовать "закрытое"
+      // состояние (opacity-0/translate-y-full) до того, как сработает
+      // callback. Тогда переход не от чего анимировать, и окно появляется
+      // мгновенно вместо плавно — обнаружено при проверке на реальном
+      // устройстве. Первый rAF дожидается кадра, где "закрытое" состояние
+      // уже точно отрисовано, второй — переключает в "открытое" уже после
+      // этого, так что браузеру есть откуда анимировать переход.
+      let raf2 = 0;
+      const raf1 = requestAnimationFrame(() => {
+        raf2 = requestAnimationFrame(() => setVisible(true));
+      });
+      return () => {
+        cancelAnimationFrame(raf1);
+        cancelAnimationFrame(raf2);
+      };
     }
     setVisible(false);
     const timeout = setTimeout(() => setShouldRender(false), TRANSITION_MS);
