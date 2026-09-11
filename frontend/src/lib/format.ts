@@ -87,6 +87,17 @@ export function formatTransactionDate(isoDate: string, includeYear = false): str
   }).format(date);
 }
 
+/** Full date for admin-only contexts (registration date, last login) —
+ * unlike formatTransactionDate, takes a full ISO datetime (already has a
+ * time component), not a date-only string. */
+export function formatDateTime(isoDateTime: string): string {
+  return new Intl.DateTimeFormat(getIntlLocale(), {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  }).format(new Date(isoDateTime));
+}
+
 /** Russian noun pluralization: pick the right form for 1/2-4/5+ (with the
  * 11-14 exception), e.g. pluralizeRu(3, "актив", "актива", "активов"). */
 export function pluralizeRu(count: number, one: string, few: string, many: string): string {

@@ -9,6 +9,7 @@ import { useLocalStorageState } from "@/hooks/useLocalStorageState";
 import { useAppSettings } from "@/hooks/useSettings";
 import { setCurrency } from "@/lib/i18n";
 import { AccountsPage } from "@/pages/AccountsPage";
+import { AdminPage } from "@/pages/AdminPage";
 import { AdvicePage } from "@/pages/AdvicePage";
 import { BudgetPage } from "@/pages/BudgetPage";
 import { CashFlowPage } from "@/pages/CashFlowPage";
@@ -76,6 +77,7 @@ export default function App() {
             <Route path="/goals" element={<GoalsPage />} />
             <Route path="/recurring" element={<RecurringPage />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/admin" element={<AdminPage />} />
           </Routes>
         </main>
       </div>

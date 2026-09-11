@@ -19,6 +19,7 @@ const ru = {
   "nav.goals": "Цели",
   "nav.advice": "Советы",
   "nav.settings": "Настройки",
+  "nav.admin": "Админка",
   "nav.more": "Ещё",
   "nav.comingSoon": "скоро",
 
@@ -44,6 +45,18 @@ const ru = {
   "common.perMonth": "/мес",
   "common.allShort": "Всё",
   "common.select": "Выбрать",
+
+  "admin.empty": "Пользователей пока нет.",
+  "admin.adminBadge": "админ",
+  "admin.disabledBadge": "отключён",
+  "admin.registeredOn": "Регистрация: {{date}}",
+  "admin.lastLoginOn": "Последний вход: {{date}}",
+  "admin.neverLoggedIn": "Ещё не входил",
+  "admin.netWorthLabel": "Капитал: {{amount}}",
+  "admin.disable": "Отключить",
+  "admin.enable": "Включить",
+  "admin.confirmDelete": "Удалить пользователя {{email}} и все его данные? Это необратимо.",
+  "admin.loadError": "Не удалось загрузить список пользователей.",
 
   "auth.subtitle": "Личные финансы",
   "auth.emailLabel": "Email",
@@ -529,6 +542,7 @@ const en: Record<keyof typeof ru, string> = {
   "nav.goals": "Goals",
   "nav.advice": "Advice",
   "nav.settings": "Settings",
+  "nav.admin": "Admin",
   "nav.more": "More",
   "nav.comingSoon": "soon",
 
@@ -554,6 +568,18 @@ const en: Record<keyof typeof ru, string> = {
   "common.perMonth": "/mo",
   "common.allShort": "All",
   "common.select": "Select",
+
+  "admin.empty": "No users yet.",
+  "admin.adminBadge": "admin",
+  "admin.disabledBadge": "disabled",
+  "admin.registeredOn": "Registered: {{date}}",
+  "admin.lastLoginOn": "Last login: {{date}}",
+  "admin.neverLoggedIn": "Never logged in",
+  "admin.netWorthLabel": "Net worth: {{amount}}",
+  "admin.disable": "Disable",
+  "admin.enable": "Enable",
+  "admin.confirmDelete": "Delete user {{email}} and all their data? This cannot be undone.",
+  "admin.loadError": "Failed to load the user list.",
 
   "auth.subtitle": "Personal finance",
   "auth.emailLabel": "Email",

@@ -26,6 +26,18 @@ export interface AccountInput {
   type: AccountType;
 }
 
+export interface AdminUser {
+  id: number;
+  email: string;
+  is_admin: boolean;
+  is_active: boolean;
+  created_at: string;
+  last_login_at: string | null;
+  accounts_count: number;
+  transactions_count: number;
+  net_worth: string;
+}
+
 export interface Category {
   id: number;
   name: string;
