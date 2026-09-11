@@ -1,5 +1,5 @@
 import type { PropsWithChildren, ReactNode } from "react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -12,8 +12,34 @@ interface DialogProps extends PropsWithChildren {
   title: ReactNode;
 }
 
+// Должно совпадать с duration-200 в классах ниже — таймер unmount'а
+// ждёт ровно столько же, сколько идёт CSS-переход, иначе анимация закрытия
+// либо обрежется, либо после неё будет заметная пауза с уже невидимым, но
+// ещё не удалённым из DOM диалогом.
+const TRANSITION_MS = 200;
+
 export function Dialog({ open, onClose, title, children }: DialogProps) {
   const { t } = useTranslation();
+  // shouldRender держит диалог в DOM ещё TRANSITION_MS после open=false —
+  // без этого закрытие происходило бы мгновенно (unmount) и анимации
+  // исчезновения не было бы видно вообще. visible — это то, что реально
+  // переключает CSS-классы между "открыт"/"закрыт"; отдельный стейт нужен,
+  // чтобы при открытии React сначала отрисовал "закрытое" состояние и лишь
+  // на следующий кадр переключил его в "открытое" — иначе браузеру не от
+  // чего анимировать переход (он увидел бы сразу конечное состояние).
+  const [shouldRender, setShouldRender] = useState(open);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setShouldRender(true);
+      const raf = requestAnimationFrame(() => setVisible(true));
+      return () => cancelAnimationFrame(raf);
+    }
+    setVisible(false);
+    const timeout = setTimeout(() => setShouldRender(false), TRANSITION_MS);
+    return () => clearTimeout(timeout);
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -24,7 +50,7 @@ export function Dialog({ open, onClose, title, children }: DialogProps) {
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [open, onClose]);
 
-  if (!open) return null;
+  if (!shouldRender) return null;
 
   // Портал в document.body: если когда-нибудь диалог окажется вложен в
   // предка с backdrop-filter (например, Card variant="glass" на будущем
@@ -40,12 +66,22 @@ export function Dialog({ open, onClose, title, children }: DialogProps) {
         // под таб-баром. Изначально комментарий объяснял то же самое
         // требование относительно мобильной шторки Sidebar (z-50) — она
         // была убрана в пользу MobileTabBar, требование к z-index осталось.
-        "fixed inset-0 z-[60] flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
+        "fixed inset-0 z-[60] flex items-end justify-center bg-black/40 p-0 transition-opacity duration-200 sm:items-center sm:p-4",
+        visible ? "opacity-100" : "opacity-0"
       )}
       onClick={onClose}
     >
       <div
-        className={glassSurfaceClass("max-h-[90vh] w-full overflow-y-auto rounded-t-2xl border border-glass-border px-5 pt-5 pb-[calc(1.25rem+var(--safe-area-bottom))] shadow-xl sm:max-w-md sm:rounded-2xl sm:pb-5")}
+        className={glassSurfaceClass(
+          cn(
+            "max-h-[90vh] w-full overflow-y-auto rounded-t-2xl border border-glass-border px-5 pt-5 pb-[calc(1.25rem+var(--safe-area-bottom))] shadow-xl transition-[transform,opacity] duration-200 sm:max-w-md sm:rounded-2xl sm:pb-5",
+            // Мобильный bottom-sheet выезжает снизу; десктопный
+            // центрированный modal (sm: и выше) вместо этого чуть
+            // увеличивается из уменьшенного состояния — выезд снизу для
+            // центра экрана выглядел бы неуместно.
+            visible ? "translate-y-0 opacity-100 sm:scale-100" : "translate-y-full opacity-0 sm:translate-y-0 sm:scale-95"
+          )
+        )}
         onClick={(event) => event.stopPropagation()}
       >
         {/* Визуальная "хваталка" — как в нативных iOS-шторках снизу.
