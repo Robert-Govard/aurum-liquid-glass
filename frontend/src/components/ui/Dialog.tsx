@@ -34,9 +34,12 @@ export function Dialog({ open, onClose, title, children }: DialogProps) {
   return createPortal(
     <div
       className={cn(
-        // z-[60]: должен перекрывать мобильную шторку Sidebar (z-50, см.
-        // Sidebar.tsx) — иначе диалог, открытый при открытой шторке,
-        // визуально оказывается под ней. Баг, найденный при аудите UI.
+        // z-[60]: должен перекрывать нижний таб-бар MobileTabBar (z-40, см.
+        // MobileTabBar.tsx) — иначе диалог (в частности сам MoreSheet,
+        // который MobileTabBar открывает поверх себя) визуально оказывается
+        // под таб-баром. Изначально комментарий объяснял то же самое
+        // требование относительно мобильной шторки Sidebar (z-50) — она
+        // была убрана в пользу MobileTabBar, требование к z-index осталось.
         "fixed inset-0 z-[60] flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
       )}
       onClick={onClose}
