@@ -120,7 +120,7 @@ async function fetchCurrentUser(accessToken: string): Promise<CurrentUser> {
   return (await response.json()) as CurrentUser;
 }
 
-export type AuthResult = "ok" | "invalid" | "email_taken" | "error" | "unreachable";
+export type AuthResult = "ok" | "invalid" | "email_taken" | "error" | "unreachable" | "verify_email_sent" | "email_not_verified";
 
 export async function login(email: string, password: string): Promise<AuthResult> {
   try {
@@ -130,6 +130,7 @@ export async function login(email: string, password: string): Promise<AuthResult
       body: JSON.stringify({ email, password }),
     });
     if (response.status === 401) return "invalid";
+    if (response.status === 403) return "email_not_verified";
     if (!response.ok) return "error";
     const pair = (await response.json()) as TokenPair;
     storeTokenPair(pair);
@@ -149,6 +150,24 @@ export async function register(email: string, password: string): Promise<AuthRes
       body: JSON.stringify({ email, password }),
     });
     if (response.status === 409) return "email_taken";
+    if (!response.ok) return "error";
+    return "verify_email_sent";
+  } catch {
+    return "unreachable";
+  }
+}
+
+/** Spends a verification token from the link in the confirmation email —
+ * on success this behaves exactly like login()/register() used to: it
+ * stores the returned token pair and updates the session state, so
+ * LoginGate reactively swaps from VerifyEmailScreen to the app itself. */
+export async function verifyEmail(token: string): Promise<AuthResult> {
+  try {
+    const response = await fetch(`${getApiBase()}/auth/verify-email`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
     if (!response.ok) return "error";
     const pair = (await response.json()) as TokenPair;
     storeTokenPair(pair);
