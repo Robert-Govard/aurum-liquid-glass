@@ -12,7 +12,7 @@ export function Topbar() {
   const activeItem = NAV_ITEMS.find((item) => (item.to === "/" ? location.pathname === "/" : location.pathname.startsWith(item.to)));
 
   return (
-    <header className={glassSurfaceClass("sticky top-0 z-30 flex items-center gap-3 border-b border-glass-border px-4 py-3.5 sm:px-6 lg:px-8")}>
+    <header className={glassSurfaceClass("sticky top-0 z-30 flex items-center gap-3 border-b border-glass-border px-4 pt-[calc(0.875rem+var(--safe-area-top))] pb-3.5 sm:px-6 lg:px-8")}>
       <h1 className="text-lg font-semibold text-text-primary">{activeItem ? t(activeItem.labelKey) : "Aurum"}</h1>
       {accessToken && (
         // Gated on accessToken (not user) — login()/register() in auth.ts

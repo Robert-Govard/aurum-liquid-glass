@@ -59,7 +59,7 @@ export default function App() {
       <Sidebar collapsed={collapsed} onToggleCollapsed={() => setCollapsed(!collapsed)} />
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar />
-        <main className="mx-auto w-full max-w-6xl px-4 py-5 pb-[calc(4.5rem+var(--safe-area-bottom))] sm:px-6 sm:py-6 lg:px-8 lg:pb-6">
+        <main className="mx-auto w-full max-w-6xl px-4 pt-5 pb-[calc(4.5rem+var(--safe-area-bottom))] sm:px-6 sm:pt-6 lg:px-8 lg:pb-6">
           <Routes>
             <Route path="/" element={<DashboardPage />} />
             <Route path="/net-worth" element={<NetWorthPage />} />

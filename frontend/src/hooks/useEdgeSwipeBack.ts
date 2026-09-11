@@ -10,6 +10,18 @@ const SWIPE_THRESHOLD_PX = 80;
  * влияет. Жест игнорируется, если возвращаться внутри приложения некуда —
  * иначе на Android свайп у самого края экрана мог бы неожиданно закрыть
  * приложение через системный жест "назад".
+ *
+ * Известные ограничения (найдено финальным ревью):
+ * - react-router даёт один и тот же navigationType "POP" и для перехода
+ *   назад, и для перехода вперёд (кнопка "вперёд" в браузере) — переход
+ *   вперёд ошибочно уменьшает счётчик. Направление отказа безопасное
+ *   (жест после этого может молча не сработать, а не увести дальше, чем
+ *   нужно), и на Android/в приложении кнопки "вперёд" в любом случае нет.
+ * - На Android с жестовой навигацией системы крайние ~20-40dp экрана —
+ *   зона системного back-жеста, который может перехватывать касание до
+ *   того, как оно дойдёт до WebView. В этом случае жест либо не
+ *   срабатывает, либо дублирует то, что уже сделала система — это не
+ *   баг данного кода, а ограничение среды.
  */
 export function useEdgeSwipeBack(enabled: boolean): void {
   const navigate = useNavigate();
@@ -35,6 +47,12 @@ export function useEdgeSwipeBack(enabled: boolean): void {
     let startY = 0;
 
     function onTouchStart(event: TouchEvent) {
+      // Сбрасывается в начале любого нового касания — иначе отменённое
+      // системой касание (touchcancel, см. ниже) могло оставить tracking
+      // выставленным в true, и следующий обычный тап где угодно на экране
+      // посчитался бы завершением свайпа и вызвал navigate(-1). Найдено
+      // финальным ревью.
+      tracking = false;
       const touch = event.touches[0];
       if (!touch || touch.clientX > EDGE_ZONE_PX || depthRef.current <= 0) return;
       tracking = true;
@@ -52,11 +70,17 @@ export function useEdgeSwipeBack(enabled: boolean): void {
       if (dx > SWIPE_THRESHOLD_PX && dy < dx) navigate(-1);
     }
 
+    function onTouchCancel() {
+      tracking = false;
+    }
+
     document.addEventListener("touchstart", onTouchStart, { passive: true });
     document.addEventListener("touchend", onTouchEnd, { passive: true });
+    document.addEventListener("touchcancel", onTouchCancel, { passive: true });
     return () => {
       document.removeEventListener("touchstart", onTouchStart);
       document.removeEventListener("touchend", onTouchEnd);
+      document.removeEventListener("touchcancel", onTouchCancel);
     };
   }, [enabled, navigate]);
 }

@@ -69,9 +69,10 @@ interface SidebarProps {
   onToggleCollapsed: () => void;
 }
 
-/** Desktop-only (`lg:flex`) постоянная боковая панель. Мобильная
- * off-canvas версия этого компонента убрана — на <lg навигация теперь
- * MobileTabBar (см. App.tsx). */
+/** Desktop-only (`lg:flex`) постоянная боковая панель, схлопывается между
+ * иконками-only и полной шириной (collapsible between icon-only and full
+ * width). Мобильная off-canvas версия этого компонента убрана — на <lg
+ * навигация теперь MobileTabBar (см. App.tsx). */
 export function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
   const { t } = useTranslation();
 

@@ -30,6 +30,7 @@ export function MobileTabBar() {
   return (
     <>
       <nav
+        aria-label="Основная навигация"
         className={glassSurfaceClass(
           "fixed inset-x-0 bottom-0 z-40 flex items-stretch justify-around border-t border-glass-border pb-[var(--safe-area-bottom)] lg:hidden"
         )}
@@ -55,6 +56,8 @@ export function MobileTabBar() {
         <button
           type="button"
           onClick={() => setMoreOpen(true)}
+          aria-haspopup="dialog"
+          aria-expanded={moreOpen}
           className={cn(
             "flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-medium",
             isMoreActive ? "text-text-primary" : "text-text-muted"

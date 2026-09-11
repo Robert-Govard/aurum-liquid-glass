@@ -45,7 +45,7 @@ export function Dialog({ open, onClose, title, children }: DialogProps) {
       onClick={onClose}
     >
       <div
-        className={glassSurfaceClass("max-h-[90vh] w-full overflow-y-auto rounded-t-2xl border border-glass-border p-5 shadow-xl sm:max-w-md sm:rounded-2xl")}
+        className={glassSurfaceClass("max-h-[90vh] w-full overflow-y-auto rounded-t-2xl border border-glass-border px-5 pt-5 pb-[calc(1.25rem+var(--safe-area-bottom))] shadow-xl sm:max-w-md sm:rounded-2xl sm:pb-5")}
         onClick={(event) => event.stopPropagation()}
       >
         {/* Визуальная "хваталка" — как в нативных iOS-шторках снизу.

@@ -19,7 +19,7 @@ export function PillSelector<T extends string>({ options, value, onChange }: Pil
 
   return (
     <div
-      className="relative grid rounded-lg border border-border bg-surface-1 p-1"
+      className="relative inline-grid rounded-lg border border-border bg-surface-1 p-1"
       style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}
     >
       {/* Скользящий фон активного сегмента (iOS segmented control). Ширина
