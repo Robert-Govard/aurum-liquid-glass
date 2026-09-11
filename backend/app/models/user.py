@@ -26,3 +26,13 @@ class User(Base):
     # auth_service.refresh() — that's a silent session renewal, not an
     # explicit login event.
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Verification state for the email the account was registered with —
+    # see services/auth_service.py's register()/login()/verify_email().
+    # Only one verification token is ever outstanding per user (unlike
+    # refresh_tokens, which intentionally keeps many rows per user for
+    # multiple devices), so this is three columns here rather than a
+    # separate table: a new registration/resend just overwrites the
+    # previous token's hash and expiry.
+    is_email_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    email_verification_token_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    email_verification_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
