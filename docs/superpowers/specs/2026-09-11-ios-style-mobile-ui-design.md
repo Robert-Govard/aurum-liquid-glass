@@ -116,9 +116,14 @@ export const MOBILE_TAB_PATHS: string[] = ["/", "/transactions", "/budget", "/ac
   карточка (`glassSurfaceClass` + `rounded-xl`), строки разделены
   `divide-y divide-border`, у каждой строки иконка слева, текст, опционально
   `trailing` справа (по умолчанию `ChevronRight` из `lucide-react` для
-  кликабельных строк). Используется в `MoreSheet` и на `SettingsPage`
-  (существующие блоки настроек оформляются через этот компонент вместо
-  текущей произвольной вёрстки).
+  кликабельных строк). Используется в `MoreSheet`.
+  **Не применяется на `SettingsPage`**: та страница собрана из
+  специализированных карточек (`PreferencesCard` с парой `PillSelector`
+  рядом, `CurrencyCard`, `AlertThresholdsCard` с числовыми полями,
+  `BackupCard` с экспортом/импортом) — это не список "нажми → перейди",
+  и упаковка их в `GroupedList` только ухудшила бы вёрстку без реальной
+  пользы. Решение принято на этапе детального планирования, после
+  прочтения содержимого этих карточек.
 - **`Switch`** (новый, `components/ui/Switch.tsx`) — iOS-переключатель:
   трек `w-11 h-6 rounded-full`, цвет `bg-surface-2` (выкл) /
   `bg-text-primary` (вкл, тот же токен, что и `Button` variant="primary" —
@@ -250,7 +255,6 @@ export function useIsMobileViewport(): boolean {
   `components/ui/Dialog.tsx` (drag handle),
   `components/ui/Button.tsx` (скругление),
   `components/ui/Card.tsx` (скругление, если применимо),
-  `pages/SettingsPage.tsx` (использовать `GroupedList`),
   `pages/AccountsPage.tsx` (использовать `Switch` вместо `<input type="checkbox">`),
   `src/index.css` (safe-area токены),
   `lib/i18n.ts` (новые ключи: `nav.more`, что-то для заголовка `MoreSheet`
