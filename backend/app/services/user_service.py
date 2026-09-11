@@ -9,15 +9,34 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.refresh_token import RefreshToken
 from app.models.user import User
-from app.schemas.user import UserUpdate
+from app.schemas.user import AdminUserRead, UserUpdate
+from app.services.admin_stats_service import UserStats, get_user_stats
 
 
-async def list_users(session: AsyncSession) -> list[User]:
+async def list_users(session: AsyncSession) -> list[AdminUserRead]:
     result = await session.execute(select(User).order_by(User.created_at))
-    return list(result.scalars().all())
+    users = list(result.scalars().all())
+    stats = await get_user_stats(session)
+    empty_stats = UserStats()
+    return [
+        AdminUserRead(
+            id=user.id,
+            email=user.email,
+            is_admin=user.is_admin,
+            is_active=user.is_active,
+            created_at=user.created_at,
+            last_login_at=user.last_login_at,
+            accounts_count=stats.get(user.id, empty_stats).accounts_count,
+            transactions_count=stats.get(user.id, empty_stats).transactions_count,
+            net_worth=stats.get(user.id, empty_stats).net_worth,
+        )
+        for user in users
+    ]
 
 
-async def update_user(session: AsyncSession, user_id: int, payload: UserUpdate) -> User:
+async def update_user(session: AsyncSession, user_id: int, payload: UserUpdate, acting_admin_id: int) -> User:
+    if user_id == acting_admin_id:
+        raise HTTPException(status_code=400, detail="Cannot modify your own account")
     user = await session.get(User, user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
@@ -42,7 +61,9 @@ async def update_user(session: AsyncSession, user_id: int, payload: UserUpdate) 
     return user
 
 
-async def delete_user(session: AsyncSession, user_id: int) -> None:
+async def delete_user(session: AsyncSession, user_id: int, acting_admin_id: int) -> None:
+    if user_id == acting_admin_id:
+        raise HTTPException(status_code=400, detail="Cannot modify your own account")
     user = await session.get(User, user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
