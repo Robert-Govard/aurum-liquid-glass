@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Plus } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
 import { AccountList } from "@/components/accounts/AccountList";
 import { AccountFormModal } from "@/components/accounts/AccountFormModal";
+import { Button } from "@/components/ui/Button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Switch } from "@/components/ui/Switch";
 import { useAccounts, useDeleteAccount, useUpdateAccount } from "@/hooks/useAccounts";
 import { useTranslation } from "@/lib/i18n";
 import type { Account, AccountWithBalance } from "@/types";
@@ -49,15 +50,10 @@ export function AccountsPage() {
           </Button>
         </CardHeader>
         <CardContent>
-          <label className="mb-3 flex items-center gap-2 text-xs text-text-muted">
-            <input
-              type="checkbox"
-              checked={showArchived}
-              onChange={(event) => setShowArchived(event.target.checked)}
-              className="h-3.5 w-3.5 accent-text-primary"
-            />
+          <div className="mb-3 flex items-center gap-2 text-xs text-text-muted">
+            <Switch checked={showArchived} onChange={setShowArchived} aria-label={t("account.showArchived")} />
             {t("account.showArchived")}
-          </label>
+          </div>
           {isLoading ? (
             <p className="py-10 text-center text-sm text-text-muted">{t("common.loading")}</p>
           ) : (
