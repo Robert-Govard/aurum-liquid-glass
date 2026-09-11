@@ -13,8 +13,8 @@ export function Card({ className, variant = "solid", ...props }: CardProps) {
     <div
       className={
         variant === "glass"
-          ? glassSurfaceClass(cn("min-w-0 rounded-xl border border-glass-border shadow-sm", className))
-          : cn("min-w-0 rounded-xl border border-border bg-surface-1 shadow-sm", className)
+          ? glassSurfaceClass(cn("min-w-0 rounded-2xl border border-glass-border shadow-sm", className))
+          : cn("min-w-0 rounded-2xl border border-border bg-surface-1 shadow-sm", className)
       }
       {...props}
     />

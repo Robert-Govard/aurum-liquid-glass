@@ -45,6 +45,12 @@ export function Dialog({ open, onClose, title, children }: DialogProps) {
         className={glassSurfaceClass("max-h-[90vh] w-full overflow-y-auto rounded-t-2xl border border-glass-border p-5 shadow-xl sm:max-w-md sm:rounded-2xl")}
         onClick={(event) => event.stopPropagation()}
       >
+        {/* Визуальная "хваталка" — как в нативных iOS-шторках снизу.
+            Скрыта на sm: и выше, где Dialog уже не bottom-sheet, а
+            центрированное модальное окно (тот же брейкпоинт, что делит
+            эти два режима в контейнере-backdrop ниже). Жест смахивания
+            вниз для закрытия не реализован — вне запрошенного скоупа. */}
+        <div aria-hidden className="mx-auto mb-3 h-1 w-9 rounded-full bg-border sm:hidden" />
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-base font-semibold text-text-primary">{title}</h2>
           <button
