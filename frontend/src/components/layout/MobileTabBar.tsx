@@ -4,12 +4,13 @@ import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { Dialog } from "@/components/ui/Dialog";
 import { GroupedList, GroupedListItem } from "@/components/ui/GroupedList";
 import { glassSurfaceClass } from "@/components/ui/GlassSurface";
+import { useAuthState } from "@/lib/auth";
 import { useTranslation } from "@/lib/i18n";
 import { MOBILE_TAB_PATHS, NAV_ITEMS } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 
 const TAB_ITEMS = MOBILE_TAB_PATHS.map((path) => NAV_ITEMS.find((item) => item.to === path)!);
-const MORE_ITEMS = NAV_ITEMS.filter((item) => !MOBILE_TAB_PATHS.includes(item.to));
+const ALL_MORE_ITEMS = NAV_ITEMS.filter((item) => !MOBILE_TAB_PATHS.includes(item.to));
 
 function isItemActive(pathname: string, to: string): boolean {
   return to === "/" ? pathname === "/" : pathname.startsWith(to);
@@ -23,9 +24,11 @@ export function MobileTabBar() {
   const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
+  const { user } = useAuthState();
   const [moreOpen, setMoreOpen] = useState(false);
 
-  const isMoreActive = MORE_ITEMS.some((item) => isItemActive(location.pathname, item.to));
+  const moreItems = ALL_MORE_ITEMS.filter((item) => !item.adminOnly || user?.is_admin);
+  const isMoreActive = moreItems.some((item) => isItemActive(location.pathname, item.to));
 
   return (
     <>
@@ -70,7 +73,7 @@ export function MobileTabBar() {
 
       <Dialog open={moreOpen} onClose={() => setMoreOpen(false)} title={t("nav.more")}>
         <GroupedList>
-          {MORE_ITEMS.map((item) => {
+          {moreItems.map((item) => {
             const Icon = item.icon;
             if (item.disabled) {
               return (

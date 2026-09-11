@@ -10,6 +10,7 @@ import {
   PieChart,
   Repeat,
   Settings,
+  ShieldCheck,
   Tags,
   Target,
   TrendingUp,
@@ -23,6 +24,9 @@ export interface NavItem {
   to: string;
   icon: LucideIcon;
   disabled?: boolean;
+  // Only rendered in Sidebar.tsx/MobileTabBar.tsx when the current user's
+  // is_admin is true — both filter NAV_ITEMS on this before rendering.
+  adminOnly?: boolean;
 }
 
 export const NAV_ITEMS: NavItem[] = [
@@ -40,6 +44,7 @@ export const NAV_ITEMS: NavItem[] = [
   { labelKey: "nav.goals", to: "/goals", icon: Flag },
   { labelKey: "nav.advice", to: "/advice", icon: Lightbulb },
   { labelKey: "nav.settings", to: "/settings", icon: Settings },
+  { labelKey: "nav.admin", to: "/admin", icon: ShieldCheck, adminOnly: true },
 ];
 
 /** Порядок путей для нижнего таб-бара на мобильной ширине (<lg) — первые
