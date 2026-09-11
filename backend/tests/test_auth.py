@@ -182,6 +182,26 @@ async def test_get_me_requires_auth(client):
     assert resp.status_code == 401
 
 
+async def test_login_and_register_set_last_login_at(client, test_sessionmaker):
+    resp = await client.post("/auth/register", json={"email": "lastlogin@example.com", "password": "hunter22"})
+    assert resp.status_code == 201
+
+    async with test_sessionmaker() as session:
+        result = await session.execute(select(User).where(User.email == "lastlogin@example.com"))
+        user = result.scalar_one()
+        assert user.last_login_at is not None
+        first_login = user.last_login_at
+
+    login_resp = await client.post("/auth/login", json={"email": "lastlogin@example.com", "password": "hunter22"})
+    assert login_resp.status_code == 200
+
+    async with test_sessionmaker() as session:
+        result = await session.execute(select(User).where(User.email == "lastlogin@example.com"))
+        user = result.scalar_one()
+        assert user.last_login_at is not None
+        assert user.last_login_at >= first_login
+
+
 async def test_get_me_returns_the_callers_own_email(client):
     # NOTE: the task-3 brief's version of this test called `client.get("/auth/me")`
     # with no explicit token, relying on the `client` fixture setting a default

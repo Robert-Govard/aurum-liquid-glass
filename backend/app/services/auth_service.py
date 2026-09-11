@@ -34,7 +34,7 @@ async def register(session: AsyncSession, payload: RegisterRequest) -> TokenPair
     if existing.first() is not None:
         raise HTTPException(status_code=409, detail="Email already registered")
 
-    user = User(email=payload.email, password_hash=hash_password(payload.password))
+    user = User(email=payload.email, password_hash=hash_password(payload.password), last_login_at=datetime.now(timezone.utc))
     session.add(user)
     await session.flush()  # assigns user.id without ending the transaction
 
@@ -49,6 +49,7 @@ async def login(session: AsyncSession, email: str, password: str) -> TokenPair:
     user = result.scalar_one_or_none()
     if user is None or not user.is_active or not verify_password(password, user.password_hash):
         raise HTTPException(status_code=401, detail="Incorrect email or password")
+    user.last_login_at = datetime.now(timezone.utc)
     return await _issue_token_pair(session, user.id)
 
 
