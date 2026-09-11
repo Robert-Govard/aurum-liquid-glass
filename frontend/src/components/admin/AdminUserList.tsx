@@ -35,7 +35,11 @@ export function AdminUserList({ items, currentUserId, onView, onToggleActive, on
         const isSelf = user.id === currentUserId;
         return (
           <li key={user.id} className={`flex flex-wrap items-center gap-3 py-3 ${!user.is_active ? "opacity-50" : ""}`}>
-            <button type="button" onClick={() => onView(user)} className="min-w-0 flex-1 text-left">
+            <button
+              type="button"
+              onClick={() => onView(user)}
+              className="-mx-2 min-w-0 flex-1 cursor-pointer rounded-lg px-2 py-1 text-left transition-colors hover:bg-surface-2"
+            >
               <span className="flex flex-wrap items-center gap-1.5 text-sm font-medium text-text-primary">
                 <span className="min-w-0 truncate">{user.email}</span>
                 {user.is_admin && (

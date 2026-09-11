@@ -41,14 +41,17 @@ export function AdminUserDashboardModal({ user, onClose }: AdminUserDashboardMod
   // animation plays (during which `user` has already gone back to null).
   const [displayUser, setDisplayUser] = useState<AdminUser | null>(user);
   useEffect(() => {
-    if (user) setDisplayUser(user);
+    if (!user) return;
+    setDisplayUser(user);
+    const registrationYear = new Date(user.created_at).getFullYear();
+    setYear((current) => Math.min(Math.max(current, registrationYear), now.getFullYear()));
   }, [user]);
 
   const registrationYear = displayUser ? new Date(displayUser.created_at).getFullYear() : now.getFullYear();
   const years: number[] = [];
   for (let y = now.getFullYear(); y >= registrationYear; y--) years.push(y);
 
-  const { data, isLoading, isError } = useAdminUserDashboard(displayUser?.id ?? null, year, month);
+  const { data, isLoading, isError } = useAdminUserDashboard(user !== null ? (displayUser?.id ?? null) : null, year, month);
   const rate = data ? savingsRate(Number(data.real_income), Number(data.net)) : null;
   const currency = displayUser?.currency;
 
@@ -64,7 +67,7 @@ export function AdminUserDashboardModal({ user, onClose }: AdminUserDashboardMod
 
         {isError ? (
           <p className="rounded-lg border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
-            {t("admin.loadError")}
+            {t("dashboard.errorLoading")}
           </p>
         ) : (
           <div className="grid grid-cols-2 gap-3">
