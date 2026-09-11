@@ -20,6 +20,15 @@ import { Preferences } from "@capacitor/preferences";
  */
 const SERVER_URL_KEY = "aurum:serverUrl";
 
+/** Baked in only when this specific build was made for one known server
+ * (see .github/workflows/ci.yml's android-build job, which sets this as a
+ * build-time env var) — the generic, publicly-buildable app has no
+ * default and always shows ServerSetupScreen empty on first launch, per
+ * this file's own module-level comment above. Trimmed/de-slashed the same
+ * way setServerUrl() normalizes a user-entered address. */
+export const DEFAULT_SERVER_URL: string =
+  (import.meta.env.VITE_DEFAULT_SERVER_URL as string | undefined)?.trim().replace(/\/+$/, "") ?? "";
+
 interface ServerState {
   ready: boolean;
   serverUrl: string | null;
@@ -41,16 +50,38 @@ export function isNative(): boolean {
   return Capacitor.isNativePlatform();
 }
 
+async function isServerReachable(origin: string): Promise<boolean> {
+  try {
+    const response = await fetch(`${origin}/api/health`);
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
 /** Called once by ServerGate on mount. On the web this just marks state
  * ready immediately (there's nothing to load) — on native, it loads
- * whatever server URL was saved on a previous launch, if any. */
+ * whatever server URL was saved on a previous launch, if any. On a fresh
+ * native install with nothing saved yet, tries DEFAULT_SERVER_URL once
+ * (if this build has one) before falling back to ServerSetupScreen — a
+ * build made for one specific server shouldn't make its own user type an
+ * address they didn't choose. */
 export async function bootstrapServerUrl(): Promise<void> {
   if (!isNative()) {
     setState({ ready: true });
     return;
   }
   const { value } = await Preferences.get({ key: SERVER_URL_KEY });
-  setState({ ready: true, serverUrl: value ?? null });
+  if (value) {
+    setState({ ready: true, serverUrl: value });
+    return;
+  }
+  if (DEFAULT_SERVER_URL && (await isServerReachable(DEFAULT_SERVER_URL))) {
+    await setServerUrl(DEFAULT_SERVER_URL);
+    setState({ ready: true });
+    return;
+  }
+  setState({ ready: true, serverUrl: null });
 }
 
 export async function setServerUrl(url: string): Promise<void> {

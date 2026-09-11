@@ -3,7 +3,7 @@ import { Logo } from "@/components/layout/Logo";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Input, Label } from "@/components/ui/Input";
-import { setServerUrl } from "@/lib/serverUrl";
+import { DEFAULT_SERVER_URL, setServerUrl } from "@/lib/serverUrl";
 import { useTranslation } from "@/lib/i18n";
 
 type Status = "idle" | "checking" | "invalid" | "unreachable";
@@ -17,7 +17,12 @@ type Status = "idle" | "checking" | "invalid" | "unreachable";
  * silently breaking every request afterward. */
 export function ServerSetupScreen() {
   const { t } = useTranslation();
-  const [url, setUrl] = useState("");
+  // Pre-filled with this build's own known server (if any — see
+  // lib/serverUrl.ts's DEFAULT_SERVER_URL) so a user only ever sees this
+  // screen at all when that address turned out unreachable on bootstrap,
+  // and doesn't have to retype an address they never chose in the first
+  // place to try again or correct it.
+  const [url, setUrl] = useState(DEFAULT_SERVER_URL);
   const [status, setStatus] = useState<Status>("idle");
 
   const handleSubmit = async (event: FormEvent) => {
