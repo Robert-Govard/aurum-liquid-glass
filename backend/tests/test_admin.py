@@ -155,3 +155,65 @@ async def test_admin_list_includes_per_user_stats(client, test_sessionmaker):
     assert admin_self["accounts_count"] == 0
     assert admin_self["transactions_count"] == 0
     assert Decimal(str(admin_self["net_worth"])) == Decimal("0")
+
+
+async def test_non_admin_gets_403_on_dashboard_summary(client):
+    tokens = await _register(client, "plaindash@example.com")
+    resp = await client.get("/admin/users/1/dashboard-summary", headers=_auth(tokens["access_token"]))
+    assert resp.status_code == 403
+
+
+async def test_admin_dashboard_summary_returns_404_for_missing_user(client, test_sessionmaker):
+    admin_tokens = await _register(client, "dashadmin404@example.com")
+    await _make_admin(test_sessionmaker, "dashadmin404@example.com")
+    resp = await client.get("/admin/users/999999/dashboard-summary", headers=_auth(admin_tokens["access_token"]))
+    assert resp.status_code == 404
+
+
+async def test_admin_can_view_another_users_dashboard_summary(client, test_sessionmaker):
+    admin_tokens = await _register(client, "dashadmin@example.com")
+    await _make_admin(test_sessionmaker, "dashadmin@example.com")
+
+    target_tokens = await _register(client, "dashtarget@example.com")
+    target_account = (
+        await client.post(
+            "/accounts",
+            json={"name": "Dash Wallet", "type": "checking", "currency": "USD"},
+            headers=_auth(target_tokens["access_token"]),
+        )
+    ).json()
+    target_categories = (await client.get("/categories", headers=_auth(target_tokens["access_token"]))).json()
+    salary_id = next(c["id"] for c in target_categories if c["name"] == "Salary")
+    await client.post(
+        "/transactions",
+        json={
+            "account_id": target_account["id"],
+            "type": "income",
+            "amount": "777.00",
+            "description": "salary",
+            "date": "2026-01-15",
+            "category_id": salary_id,
+        },
+        headers=_auth(target_tokens["access_token"]),
+    )
+
+    users = (await client.get("/admin/users", headers=_auth(admin_tokens["access_token"]))).json()
+    target_id = next(u["id"] for u in users if u["email"] == "dashtarget@example.com")
+    admin_id = next(u["id"] for u in users if u["email"] == "dashadmin@example.com")
+
+    resp = await client.get(
+        f"/admin/users/{target_id}/dashboard-summary",
+        params={"year": 2026, "month": 1},
+        headers=_auth(admin_tokens["access_token"]),
+    )
+    assert resp.status_code == 200
+    assert Decimal(str(resp.json()["real_income"])) == Decimal("777.00")
+
+    # The viewing admin's own (empty) dashboard must not leak the target's
+    # income — this is the cross-user isolation check that matters here.
+    admin_own_resp = await client.get(
+        f"/admin/users/{admin_id}/dashboard-summary",
+        params={"year": 2026, "month": 1},
+        headers=_auth(admin_tokens["access_token"]),
+    )
+    assert Decimal(str(admin_own_resp.json()["real_income"])) == Decimal("0")
