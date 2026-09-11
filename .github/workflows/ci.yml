@@ -107,3 +107,45 @@ jobs:
         with:
           name: aurum-debug-apk
           path: frontend/android/app/build/outputs/apk/debug/app-debug.apk
+
+  # Verifies the native iOS project actually builds on every PR and push to
+  # main — same rationale as android-build: no way to check this locally
+  # without a Mac running Xcode. Unlike Android, there's no APK-equivalent
+  # artifact to hand out here: Apple requires every install (even on your
+  # own iPhone) to be code-signed with an Apple ID/Developer certificate,
+  # which can't be baked into CI without checking in real signing secrets.
+  # So this job builds unsigned (CODE_SIGNING_ALLOWED=NO) purely to catch
+  # regressions (Podfile/SPM config, Info.plist, plugin sync) — actually
+  # installing on a physical iPhone still has to happen locally via Xcode
+  # + your own Apple ID, as noted in Info.plist and the commit that added
+  # the ios/ project.
+  ios-build:
+    runs-on: macos-latest
+    needs: frontend-build
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run build
+        env:
+          # Same reasoning as android-build's identical env var — this is
+          # the build that would ship to a real device, so it should point
+          # at the real server by default too.
+          VITE_DEFAULT_SERVER_URL: https://robertaurum.mooo.com:8443
+      - run: npx cap sync ios
+      - name: Build unsigned (verification only)
+        working-directory: frontend/ios/App
+        run: |
+          xcodebuild build \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -sdk iphonesimulator \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO
