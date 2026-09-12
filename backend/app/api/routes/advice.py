@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, get_session
+from app.api.deps import get_current_user, get_premium_user, get_session
 from app.models.user import User
 from app.schemas.advice import AdviceResponse
 from app.services.advice_service import get_advice
 
-router = APIRouter(prefix="/advice", tags=["advice"])
+router = APIRouter(prefix="/advice", tags=["advice"], dependencies=[Depends(get_premium_user)])
 
 
 @router.get("", response_model=AdviceResponse)

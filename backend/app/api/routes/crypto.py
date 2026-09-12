@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, get_session
+from app.api.deps import get_current_user, get_premium_user, get_session
 from app.models.user import User
 from app.schemas.crypto import (
     CryptoHistoryResponse,
@@ -34,7 +34,7 @@ from app.services.crypto_service import (
     update_transaction,
 )
 
-router = APIRouter(prefix="/crypto", tags=["crypto"])
+router = APIRouter(prefix="/crypto", tags=["crypto"], dependencies=[Depends(get_premium_user)])
 
 
 @router.get("/portfolios", response_model=list[CryptoPortfolioRead])

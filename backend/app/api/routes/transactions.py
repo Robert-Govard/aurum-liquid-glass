@@ -7,7 +7,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.api.deps import get_current_user, get_session
+from app.api.deps import get_current_user, get_premium_user, get_session
 from app.models.account import Account
 from app.models.category import Category
 from app.models.enums import CategoryKind, TransactionType
@@ -235,7 +235,7 @@ async def create_transaction(
 async def bulk_create_transactions(
     payload: TransactionBulkCreate,
     session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_premium_user),
 ) -> TransactionBulkCreateResult:
     """CSV import lands here — see schemas.TransactionBulkCreate. All rows
     are validated before any is added, so a bad row 400s/404s the whole

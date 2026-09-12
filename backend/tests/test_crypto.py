@@ -6,10 +6,34 @@ canned market-data feed instead, same way any external dependency would be.
 from decimal import Decimal
 
 import httpx
+import pytest
 from httpx import AsyncClient
+from sqlalchemy import update
 
+from app.models.user import User
 from app.services import crypto_service
 from tests.helpers import auth_headers, money, register_user
+
+
+@pytest.fixture(autouse=True)
+async def _default_user_is_premium(request, client, test_sessionmaker):
+    """This whole file exercises a Premium-gated router (see
+    plan_service.py / deps.get_premium_user) — the client fixture's
+    default user is Free by design (Task 2's limit tests need that), so
+    promote it here for every test except the ones that specifically
+    want the Free/402 case (marked @pytest.mark.free_tier below).
+
+    Depends on `client` (even though it's unused directly) purely to force
+    fixture ordering — autouse fixtures otherwise instantiate before the
+    other fixtures a test requests, which here would run this UPDATE
+    before `client` has even registered the "test@example.com" row it's
+    meant to promote.
+    """
+    if "free_tier" in request.keywords:
+        return
+    async with test_sessionmaker() as session:
+        await session.execute(update(User).where(User.email == "test@example.com").values(is_admin=True))
+        await session.commit()
 
 
 def _point(price: str, change_1h: str | None = None, change_24h: str | None = None, change_7d: str | None = None):
@@ -702,9 +726,17 @@ async def test_user_a_cannot_see_user_bs_holdings(client: AsyncClient, monkeypat
     assert a_holdings == []
 
 
-async def test_user_a_cannot_transact_against_or_delete_user_bs_holding(client: AsyncClient, monkeypatch):
+async def test_user_a_cannot_transact_against_or_delete_user_bs_holding(
+    client: AsyncClient, monkeypatch, test_sessionmaker
+):
     monkeypatch.setattr(crypto_service, "_fetch_market_data", _fake_fetch({"bitcoin": _point("50000")}))
     b_tokens = await register_user(client, "cryptob2@example.com")
+    # This crypto router is Premium-gated (see deps.get_premium_user) — user
+    # B needs promoting too, same as the default user is via the autouse
+    # fixture above, since B is the one actually exercising the router here.
+    async with test_sessionmaker() as session:
+        await session.execute(update(User).where(User.email == "cryptob2@example.com").values(is_admin=True))
+        await session.commit()
 
     b_resp = await client.post(
         "/crypto/holdings",
@@ -741,9 +773,14 @@ async def test_user_a_cannot_transact_against_or_delete_user_bs_holding(client: 
     assert delete_resp.status_code == 404
 
 
-async def test_user_a_cannot_patch_user_bs_transaction(client: AsyncClient, monkeypatch):
+async def test_user_a_cannot_patch_user_bs_transaction(client: AsyncClient, monkeypatch, test_sessionmaker):
     monkeypatch.setattr(crypto_service, "_fetch_market_data", _fake_fetch({"bitcoin": _point("50000")}))
     b_tokens = await register_user(client, "cryptob4@example.com")
+    # Promote B too — see the matching comment in
+    # test_user_a_cannot_transact_against_or_delete_user_bs_holding above.
+    async with test_sessionmaker() as session:
+        await session.execute(update(User).where(User.email == "cryptob4@example.com").values(is_admin=True))
+        await session.commit()
 
     b_resp = await client.post(
         "/crypto/holdings",
@@ -771,7 +808,9 @@ async def test_user_a_cannot_patch_user_bs_transaction(client: AsyncClient, monk
     assert patch_resp.status_code == 404
 
 
-async def test_user_bs_price_sync_is_not_suppressed_by_user_as_recent_sync(client: AsyncClient, monkeypatch):
+async def test_user_bs_price_sync_is_not_suppressed_by_user_as_recent_sync(
+    client: AsyncClient, monkeypatch, test_sessionmaker
+):
     """crypto_sync_state is one row per user (not a single global
     singleton) precisely so that one user's recent sync can never make
     another user's holdings look "already synced" and skip fetching a
@@ -784,6 +823,11 @@ async def test_user_bs_price_sync_is_not_suppressed_by_user_as_recent_sync(clien
     await _add_bitcoin(client, "1", "40000")
 
     b_tokens = await register_user(client, "cryptob5@example.com")
+    # Promote B too — see the matching comment in
+    # test_user_a_cannot_transact_against_or_delete_user_bs_holding above.
+    async with test_sessionmaker() as session:
+        await session.execute(update(User).where(User.email == "cryptob5@example.com").values(is_admin=True))
+        await session.commit()
 
     # Simulate a CoinGecko outage while B creates their own (different)
     # holding, so B's sync state is never touched (create_holding only
@@ -826,6 +870,17 @@ async def test_user_bs_price_sync_is_not_suppressed_by_user_as_recent_sync(clien
     assert body["synced"] is True
     assert calls == [["ethereum"]]
     assert money(body["holdings"][0]["current_price"]) == money("2500")
+
+
+@pytest.mark.free_tier
+async def test_free_user_cannot_access_crypto(client):
+    resp = await client.get("/crypto/portfolios")
+    assert resp.status_code == 402
+
+
+async def test_premium_user_can_access_crypto(client):
+    resp = await client.get("/crypto/portfolios")
+    assert resp.status_code == 200
 
 
 async def test_crypto_history_only_counts_the_callers_own_holdings(client, monkeypatch):

@@ -12,11 +12,17 @@ from datetime import date
 from decimal import Decimal
 
 from httpx import AsyncClient
+from sqlalchemy import update
 
+from app.models.user import User
 from tests.helpers import auth_headers, money, register_user, txn_payload as _txn
 
 
-async def test_bulk_create_transactions(client: AsyncClient, account_id, categories):
+async def test_bulk_create_transactions(client: AsyncClient, account_id, categories, test_sessionmaker):
+    async with test_sessionmaker() as session:
+        await session.execute(update(User).where(User.email == "test@example.com").values(is_admin=True))
+        await session.commit()
+
     groceries = categories["Groceries"]["id"]
     resp = await client.post(
         "/transactions/bulk",
@@ -34,7 +40,11 @@ async def test_bulk_create_transactions(client: AsyncClient, account_id, categor
     assert listed.json()["total"] == 2
 
 
-async def test_bulk_create_is_all_or_nothing(client: AsyncClient, account_id, categories):
+async def test_bulk_create_is_all_or_nothing(client: AsyncClient, account_id, categories, test_sessionmaker):
+    async with test_sessionmaker() as session:
+        await session.execute(update(User).where(User.email == "test@example.com").values(is_admin=True))
+        await session.commit()
+
     groceries = categories["Groceries"]["id"]
     salary = categories["Salary"]["id"]
     resp = await client.post(
@@ -54,7 +64,55 @@ async def test_bulk_create_is_all_or_nothing(client: AsyncClient, account_id, ca
     assert listed.json()["total"] == 0
 
 
-async def test_bulk_create_rejects_another_users_account(client: AsyncClient, account_id, categories):
+async def test_free_user_cannot_use_bulk_import(client, account_id):
+    resp = await client.post(
+        "/transactions/bulk",
+        json={
+            "items": [
+                {
+                    "account_id": account_id,
+                    "type": "expense",
+                    "amount": "10.00",
+                    "description": "CSV row",
+                    "date": "2026-01-15",
+                }
+            ]
+        },
+    )
+    assert resp.status_code == 402
+
+
+async def test_premium_user_can_use_bulk_import(client, account_id, test_sessionmaker):
+    from sqlalchemy import update
+
+    from app.models.user import User
+
+    async with test_sessionmaker() as session:
+        await session.execute(update(User).where(User.email == "test@example.com").values(is_admin=True))
+        await session.commit()
+
+    resp = await client.post(
+        "/transactions/bulk",
+        json={
+            "items": [
+                {
+                    "account_id": account_id,
+                    "type": "expense",
+                    "amount": "10.00",
+                    "description": "CSV row",
+                    "date": "2026-01-15",
+                }
+            ]
+        },
+    )
+    assert resp.status_code == 201
+
+
+async def test_bulk_create_rejects_another_users_account(client: AsyncClient, account_id, categories, test_sessionmaker):
+    async with test_sessionmaker() as session:
+        await session.execute(update(User).where(User.email == "test@example.com").values(is_admin=True))
+        await session.commit()
+
     groceries = categories["Groceries"]["id"]
     b_tokens = await register_user(client, "txnb9@example.com")
     b_account = (

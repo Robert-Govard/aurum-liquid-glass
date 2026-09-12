@@ -1,8 +1,32 @@
 """Advice: curated, non-urgent financial notes — basic correctness (no
 prior test file existed) plus per-user isolation."""
+import pytest
 from httpx import AsyncClient
+from sqlalchemy import update
 
+from app.models.user import User
 from tests.helpers import auth_headers, register_user, txn_payload as _txn
+
+
+@pytest.fixture(autouse=True)
+async def _default_user_is_premium(request, client, test_sessionmaker):
+    """This whole file exercises a Premium-gated router (see
+    plan_service.py / deps.get_premium_user) — the client fixture's
+    default user is Free by design (Task 2's limit tests need that), so
+    promote it here for every test except the ones that specifically
+    want the Free/402 case (marked @pytest.mark.free_tier below).
+
+    Depends on `client` (even though it's unused directly) purely to force
+    fixture ordering — autouse fixtures otherwise instantiate before the
+    other fixtures a test requests, which here would run this UPDATE
+    before `client` has even registered the "test@example.com" row it's
+    meant to promote.
+    """
+    if "free_tier" in request.keywords:
+        return
+    async with test_sessionmaker() as session:
+        await session.execute(update(User).where(User.email == "test@example.com").values(is_admin=True))
+        await session.commit()
 
 
 async def test_rising_category_advice_is_scoped_to_the_caller(client: AsyncClient, account_id, categories):
@@ -83,3 +107,14 @@ async def test_unbudgeted_top_category_advice_is_scoped_to_the_caller(client: As
     assert resp.status_code == 200
     unbudgeted = [item for item in resp.json()["items"] if item["key"] == "unbudgeted_top_category"]
     assert all(item["params"]["category"] != "Groceries" for item in unbudgeted)
+
+
+@pytest.mark.free_tier
+async def test_free_user_cannot_access_advice(client):
+    resp = await client.get("/advice")
+    assert resp.status_code == 402
+
+
+async def test_premium_user_can_access_advice(client):
+    resp = await client.get("/advice")
+    assert resp.status_code == 200
