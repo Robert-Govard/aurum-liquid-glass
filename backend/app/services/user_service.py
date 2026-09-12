@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.refresh_token import RefreshToken
 from app.models.user import User
-from app.schemas.user import AdminUserRead, UserUpdate
+from app.schemas.user import AdminUserRead, UserPremiumUpdate, UserUpdate
 from app.services.admin_stats_service import UserStats, get_user_currencies, get_user_stats
 
 
@@ -25,12 +25,14 @@ async def list_users(session: AsyncSession) -> list[AdminUserRead]:
             email=user.email,
             is_admin=user.is_admin,
             is_active=user.is_active,
+            is_premium=user.is_premium,
             created_at=user.created_at,
             last_login_at=user.last_login_at,
             accounts_count=stats.get(user.id, empty_stats).accounts_count,
             transactions_count=stats.get(user.id, empty_stats).transactions_count,
             net_worth=stats.get(user.id, empty_stats).net_worth,
             currency=currencies.get(user.id, "USD"),
+            premium_until=user.premium_until,
         )
         for user in users
     ]
@@ -71,3 +73,17 @@ async def delete_user(session: AsyncSession, user_id: int, acting_admin_id: int)
         raise HTTPException(status_code=404, detail="User not found")
     await session.delete(user)
     await session.commit()
+
+
+async def update_user_premium(session: AsyncSession, user_id: int, payload: UserPremiumUpdate) -> User:
+    """No self-lockout guard here (unlike update_user()/delete_user()):
+    an admin setting their own premium_until has zero effect either way
+    — User.is_premium already returns True for any admin regardless of
+    this field — so there is nothing destructive to guard against."""
+    user = await session.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.premium_until = payload.premium_until
+    await session.commit()
+    await session.refresh(user)
+    return user

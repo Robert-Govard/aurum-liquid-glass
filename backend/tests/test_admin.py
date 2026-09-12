@@ -1,6 +1,7 @@
 """Admin: list/disable/delete users, gated behind is_admin."""
 from decimal import Decimal
 
+import jwt as pyjwt
 from sqlalchemy import update
 
 from app.models.user import User
@@ -15,6 +16,16 @@ async def _make_admin(test_sessionmaker, email: str) -> None:
 
 def _auth(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
+
+
+def _user_id_from_token(tokens: dict) -> int:
+    """Decodes the access token's `sub` claim without verifying the
+    signature — this test file already has the real signing secret via
+    the autouse _jwt_secret fixture in test_auth.py, but pulling the user
+    id out of the token this way avoids threading it through _register's
+    return value just for these four tests."""
+    payload = pyjwt.decode(tokens["access_token"], options={"verify_signature": False})
+    return int(payload["sub"])
 
 
 async def test_non_admin_gets_403(client):
@@ -213,3 +224,64 @@ async def test_admin_can_view_another_users_dashboard_summary(client, test_sessi
         headers=_auth(admin_tokens["access_token"]),
     )
     assert Decimal(str(admin_own_resp.json()["real_income"])) == Decimal("0")
+
+
+async def test_admin_can_grant_premium_to_a_user(client, test_sessionmaker):
+    admin_tokens = await _register(client, "premiumadmin@example.com")
+    await _make_admin(test_sessionmaker, "premiumadmin@example.com")
+
+    target_tokens = await _register(client, "premiumtarget@example.com")
+
+    resp = await client.patch(
+        f"/admin/users/{_user_id_from_token(target_tokens)}/premium",
+        json={"premium_until": "2099-01-01T00:00:00Z"},
+        headers=_auth(admin_tokens["access_token"]),
+    )
+    assert resp.status_code == 200
+    assert resp.json()["is_premium"] is True
+    assert resp.json()["premium_until"].startswith("2099-01-01")
+
+    # Confirm it's actually enforced, not just reported: the target user's
+    # own token can now hit a Premium-gated route.
+    crypto_resp = await client.get("/crypto/portfolios", headers=_auth(target_tokens["access_token"]))
+    assert crypto_resp.status_code == 200
+
+
+async def test_admin_can_revoke_premium(client, test_sessionmaker):
+    admin_tokens = await _register(client, "premiumadmin2@example.com")
+    await _make_admin(test_sessionmaker, "premiumadmin2@example.com")
+
+    target_tokens = await _register(client, "premiumtarget2@example.com")
+    target_id = _user_id_from_token(target_tokens)
+
+    await client.patch(
+        f"/admin/users/{target_id}/premium",
+        json={"premium_until": "2099-01-01T00:00:00Z"},
+        headers=_auth(admin_tokens["access_token"]),
+    )
+
+    resp = await client.patch(
+        f"/admin/users/{target_id}/premium",
+        json={"premium_until": None},
+        headers=_auth(admin_tokens["access_token"]),
+    )
+    assert resp.status_code == 200
+    assert resp.json()["is_premium"] is False
+    assert resp.json()["premium_until"] is None
+
+
+async def test_non_admin_cannot_grant_premium(client):
+    resp = await client.patch("/admin/users/1/premium", json={"premium_until": "2099-01-01T00:00:00Z"})
+    assert resp.status_code == 403
+
+
+async def test_grant_premium_to_unknown_user_is_404(client, test_sessionmaker):
+    admin_tokens = await _register(client, "premiumadmin3@example.com")
+    await _make_admin(test_sessionmaker, "premiumadmin3@example.com")
+
+    resp = await client.patch(
+        "/admin/users/999999/premium",
+        json={"premium_until": "2099-01-01T00:00:00Z"},
+        headers=_auth(admin_tokens["access_token"]),
+    )
+    assert resp.status_code == 404
