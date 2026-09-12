@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user, get_session
 from app.models.user import User
 from app.schemas.recurring import RecurringTransactionCreate, RecurringTransactionRead, RecurringTransactionUpdate
-from app.services.plan_service import FREE_RECURRING_LIMIT, count_active_recurring, is_premium
+from app.services.plan_service import FREE_RECURRING_LIMIT, count_active_recurring, enforce_recurring_reactivation_limit, is_premium
 from app.services.recurring_service import (
     create_recurring,
     delete_recurring,
@@ -41,6 +41,8 @@ async def update_recurring_route(
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> RecurringTransactionRead:
+    if payload.is_active is True:
+        await enforce_recurring_reactivation_limit(session, current_user, recurring_id)
     return await update_recurring(session, recurring_id, payload, current_user.id)
 
 

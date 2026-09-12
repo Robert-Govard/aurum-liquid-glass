@@ -53,8 +53,10 @@ export function AdminPremiumModal({ user, onClose }: AdminPremiumModalProps) {
       {displayUser && (
         <div className="space-y-4">
           <p className="text-sm text-text-secondary">
-            {displayUser.is_premium && displayUser.premium_until
-              ? t("admin.premiumActiveUntil", { date: formatFullDate(displayUser.premium_until) })
+            {displayUser.is_premium
+              ? displayUser.premium_until
+                ? t("admin.premiumActiveUntil", { date: formatFullDate(displayUser.premium_until) })
+                : t("admin.premiumActiveAsAdmin")
               : t("admin.premiumInactive")}
           </p>
           <div>

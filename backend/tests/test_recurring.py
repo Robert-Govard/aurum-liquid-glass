@@ -80,3 +80,19 @@ async def test_free_user_cannot_exceed_the_recurring_limit(client, account_id):
 
     over_limit = await client.post("/recurring", json=_payload(account_id, description="One too many"))
     assert over_limit.status_code == 402
+
+
+async def test_free_user_cannot_reactivate_a_recurring_transaction_past_the_limit(client, account_id):
+    ids = []
+    for i in range(FREE_RECURRING_LIMIT):
+        resp = await client.post("/recurring", json=_payload(account_id, description=f"Bill {i}"))
+        ids.append(resp.json()["id"])
+
+    pause_resp = await client.patch(f"/recurring/{ids[0]}", json={"is_active": False})
+    assert pause_resp.status_code == 200
+
+    new_resp = await client.post("/recurring", json=_payload(account_id, description="Replacement"))
+    assert new_resp.status_code == 201
+
+    reactivate_resp = await client.patch(f"/recurring/{ids[0]}", json={"is_active": True})
+    assert reactivate_resp.status_code == 402

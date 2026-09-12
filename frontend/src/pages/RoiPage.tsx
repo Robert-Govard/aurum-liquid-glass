@@ -7,7 +7,10 @@ import { useAuthState } from "@/lib/auth";
 export function RoiPage() {
   const { user } = useAuthState();
   if (!user?.is_premium) return <PremiumRequired />;
+  return <RoiPageContent />;
+}
 
+function RoiPageContent() {
   const [investment, setInvestment] = useState("");
   const [monthlyIncome, setMonthlyIncome] = useState("");
 

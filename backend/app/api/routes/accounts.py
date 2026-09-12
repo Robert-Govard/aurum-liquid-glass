@@ -5,7 +5,7 @@ from app.api.deps import get_current_user, get_session
 from app.models.user import User
 from app.schemas.account import AccountCreate, AccountUpdate, AccountWithBalance
 from app.services.account_service import create_account, delete_account, list_accounts, update_account
-from app.services.plan_service import FREE_ACCOUNT_LIMIT, count_accounts, is_premium
+from app.services.plan_service import FREE_ACCOUNT_LIMIT, count_accounts, enforce_account_reactivation_limit, is_premium
 
 router = APIRouter(prefix="/accounts", tags=["accounts"])
 
@@ -37,6 +37,8 @@ async def update_account_route(
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> AccountWithBalance:
+    if payload.is_archived is False:
+        await enforce_account_reactivation_limit(session, current_user, account_id)
     return await update_account(session, account_id, payload, current_user.id)
 
 

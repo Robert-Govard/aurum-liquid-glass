@@ -38,7 +38,10 @@ interface SkippedRow {
 export function CsvImportPage() {
   const { user } = useAuthState();
   if (!user?.is_premium) return <PremiumRequired />;
+  return <CsvImportPageContent />;
+}
 
+function CsvImportPageContent() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { data: accounts } = useAccounts();

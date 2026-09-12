@@ -79,3 +79,27 @@ async def test_premium_user_has_no_account_limit(client, test_sessionmaker):
     for i in range(FREE_ACCOUNT_LIMIT + 2):
         resp = await client.post("/accounts", json={"name": f"Account {i}", "type": "checking", "currency": "USD"})
         assert resp.status_code == 201
+
+
+async def test_free_user_cannot_unarchive_an_account_past_the_limit(client):
+    ids = []
+    for i in range(FREE_ACCOUNT_LIMIT):
+        resp = await client.post("/accounts", json={"name": f"Account {i}", "type": "checking", "currency": "USD"})
+        ids.append(resp.json()["id"])
+
+    archive_resp = await client.patch(f"/accounts/{ids[0]}", json={"is_archived": True})
+    assert archive_resp.status_code == 200
+
+    new_resp = await client.post("/accounts", json={"name": "Replacement", "type": "checking", "currency": "USD"})
+    assert new_resp.status_code == 201
+
+    unarchive_resp = await client.patch(f"/accounts/{ids[0]}", json={"is_archived": False})
+    assert unarchive_resp.status_code == 402
+
+
+async def test_free_user_can_resave_an_already_unarchived_account(client):
+    resp = await client.post("/accounts", json={"name": "Checking", "type": "checking", "currency": "USD"})
+    account_id = resp.json()["id"]
+
+    resave_resp = await client.patch(f"/accounts/{account_id}", json={"is_archived": False})
+    assert resave_resp.status_code == 200

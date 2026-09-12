@@ -31,7 +31,10 @@ function formatSyncedAt(iso: string): string {
 export function CryptoPage() {
   const { user } = useAuthState();
   if (!user?.is_premium) return <PremiumRequired />;
+  return <CryptoPageContent />;
+}
 
+function CryptoPageContent() {
   const { t } = useTranslation();
   // "all" by default — a 30-day window makes a portfolio that's actually
   // grown steadily for years look demotivating whenever it's mid-dip.

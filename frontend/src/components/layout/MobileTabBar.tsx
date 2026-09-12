@@ -92,7 +92,7 @@ export function MobileTabBar() {
                 key={item.to}
                 icon={Icon}
                 label={t(item.labelKey)}
-                trailing={locked ? <Lock size={14} className="text-text-muted" /> : undefined}
+                trailing={locked ? <Lock size={14} className="text-text-muted" aria-label={t("nav.premiumBadge")} /> : undefined}
                 onClick={() => {
                   navigate(item.to);
                   setMoreOpen(false);

@@ -50,7 +50,10 @@ function adviceMessage(item: AdviceItem, t: ReturnType<typeof useTranslation>["t
 export function AdvicePage() {
   const { user } = useAuthState();
   if (!user?.is_premium) return <PremiumRequired />;
+  return <AdvicePageContent />;
+}
 
+function AdvicePageContent() {
   const { t } = useTranslation();
   const { data, isLoading } = useAdvice();
   const items = data?.items ?? [];

@@ -63,7 +63,7 @@ function NavList({ collapsed }: NavListProps) {
             {!collapsed && (
               <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
                 <span className="truncate">{label}</span>
-                {locked && <Lock size={12} className="shrink-0 text-text-muted" />}
+                {locked && <Lock size={12} className="shrink-0 text-text-muted" aria-label={t("nav.premiumBadge")} />}
               </span>
             )}
           </NavLink>
