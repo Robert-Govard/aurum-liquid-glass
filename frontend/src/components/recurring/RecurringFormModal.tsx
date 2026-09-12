@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ApiError } from "@/api/client";
 import { Dialog } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
 import { Input, Label } from "@/components/ui/Input";
@@ -104,8 +105,8 @@ export function RecurringFormModal({ open, onClose, recurring }: RecurringFormMo
         await createRecurring.mutateAsync(payload);
       }
       onClose();
-    } catch {
-      setError(t("recurring.form.saveError"));
+    } catch (err) {
+      setError(err instanceof ApiError && err.status === 402 ? t("premium.limitReached") : t("recurring.form.saveError"));
     }
   }
 

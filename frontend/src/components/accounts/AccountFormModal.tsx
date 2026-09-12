@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ApiError } from "@/api/client";
 import { Dialog } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
 import { Input, Label } from "@/components/ui/Input";
@@ -44,8 +45,8 @@ export function AccountFormModal({ open, onClose, account }: AccountFormModalPro
         await createAccount.mutateAsync(form);
       }
       onClose();
-    } catch {
-      setError(t("account.form.saveError"));
+    } catch (err) {
+      setError(err instanceof ApiError && err.status === 402 ? t("premium.limitReached") : t("account.form.saveError"));
     }
   }
 

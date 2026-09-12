@@ -13,7 +13,7 @@ export function PremiumRequired() {
 
   return (
     <Card>
-      <CardContent className="flex flex-col items-center gap-3 p-8 text-center">
+      <CardContent className="flex flex-col items-center gap-3 p-8 text-center sm:p-8">
         <Lock size={28} className="text-text-muted" />
         <p className="text-sm font-semibold text-text-primary">{t("premium.requiredTitle")}</p>
         <p className="max-w-sm text-sm text-text-muted">{t("premium.requiredBody")}</p>

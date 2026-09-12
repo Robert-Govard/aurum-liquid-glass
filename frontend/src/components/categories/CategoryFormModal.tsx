@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ApiError } from "@/api/client";
 import { Dialog } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
 import { Input, Label } from "@/components/ui/Input";
@@ -75,8 +76,8 @@ export function CategoryFormModal({ open, onClose, category, defaultKind }: Cate
         await createCategory.mutateAsync({ name: form.name, kind: form.kind, icon: form.icon, color: form.color, parent_id });
       }
       onClose();
-    } catch {
-      setError(t("category.form.saveError"));
+    } catch (err) {
+      setError(err instanceof ApiError && err.status === 402 ? t("premium.limitReached") : t("category.form.saveError"));
     }
   }
 

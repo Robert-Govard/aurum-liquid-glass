@@ -20,6 +20,8 @@ import {
 } from "@/hooks/useCrypto";
 import { getIntlLocale } from "@/lib/format";
 import { useTranslation } from "@/lib/i18n";
+import { PremiumRequired } from "@/components/premium/PremiumRequired";
+import { useAuthState } from "@/lib/auth";
 import type { CryptoHolding, CryptoPortfolio, CryptoRange, CryptoTransaction } from "@/types";
 
 function formatSyncedAt(iso: string): string {
@@ -27,6 +29,9 @@ function formatSyncedAt(iso: string): string {
 }
 
 export function CryptoPage() {
+  const { user } = useAuthState();
+  if (!user?.is_premium) return <PremiumRequired />;
+
   const { t } = useTranslation();
   // "all" by default — a 30-day window makes a portfolio that's actually
   // grown steadily for years look demotivating whenever it's mid-dip.

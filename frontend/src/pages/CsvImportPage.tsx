@@ -13,6 +13,8 @@ import { DATE_FORMATS, parseAmount, parseCsv, parseDateWithFormat, type DateForm
 import { formatCurrency } from "@/lib/format";
 import { ApiError } from "@/api/client";
 import { useTranslation } from "@/lib/i18n";
+import { PremiumRequired } from "@/components/premium/PremiumRequired";
+import { useAuthState } from "@/lib/auth";
 import type { TransactionInput } from "@/types";
 
 type Step = "upload" | "map" | "preview";
@@ -34,6 +36,9 @@ interface SkippedRow {
 }
 
 export function CsvImportPage() {
+  const { user } = useAuthState();
+  if (!user?.is_premium) return <PremiumRequired />;
+
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { data: accounts } = useAccounts();

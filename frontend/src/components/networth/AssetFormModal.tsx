@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ApiError } from "@/api/client";
 import { Dialog } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
 import { Input, Label } from "@/components/ui/Input";
@@ -95,8 +96,8 @@ export function AssetFormModal({ open, onClose, asset }: AssetFormModalProps) {
         });
       }
       onClose();
-    } catch {
-      setError(t("netWorth.form.saveError"));
+    } catch (err) {
+      setError(err instanceof ApiError && err.status === 402 ? t("premium.limitReached") : t("netWorth.form.saveError"));
     }
   }
 

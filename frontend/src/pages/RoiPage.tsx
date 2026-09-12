@@ -1,8 +1,13 @@
 import { useState } from "react";
 import { RoiCalculatorCard } from "@/components/roi/RoiCalculatorCard";
 import { RoiProjectionCard } from "@/components/roi/RoiProjectionCard";
+import { PremiumRequired } from "@/components/premium/PremiumRequired";
+import { useAuthState } from "@/lib/auth";
 
 export function RoiPage() {
+  const { user } = useAuthState();
+  if (!user?.is_premium) return <PremiumRequired />;
+
   const [investment, setInvestment] = useState("");
   const [monthlyIncome, setMonthlyIncome] = useState("");
 
