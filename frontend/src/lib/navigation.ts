@@ -27,13 +27,19 @@ export interface NavItem {
   // Only rendered in Sidebar.tsx/MobileTabBar.tsx when the current user's
   // is_admin is true — both filter NAV_ITEMS on this before rendering.
   adminOnly?: boolean;
+  // Shown with a lock badge (not hidden) in Sidebar.tsx/MobileTabBar.tsx
+  // when the current user's is_premium is false — the item stays
+  // clickable either way; the destination page itself renders
+  // <PremiumRequired /> instead of its normal content (see
+  // components/premium/PremiumRequired.tsx).
+  premiumOnly?: boolean;
 }
 
 export const NAV_ITEMS: NavItem[] = [
   { labelKey: "nav.dashboard", to: "/", icon: LayoutDashboard },
   { labelKey: "nav.netWorth", to: "/net-worth", icon: TrendingUp },
-  { labelKey: "nav.crypto", to: "/crypto", icon: Coins },
-  { labelKey: "nav.roi", to: "/roi", icon: Calculator },
+  { labelKey: "nav.crypto", to: "/crypto", icon: Coins, premiumOnly: true },
+  { labelKey: "nav.roi", to: "/roi", icon: Calculator, premiumOnly: true },
   { labelKey: "nav.transactions", to: "/transactions", icon: ArrowLeftRight },
   { labelKey: "nav.accounts", to: "/accounts", icon: Layers },
   { labelKey: "nav.categories", to: "/categories", icon: Tags },
@@ -42,7 +48,7 @@ export const NAV_ITEMS: NavItem[] = [
   { labelKey: "nav.budget", to: "/budget", icon: Target },
   { labelKey: "nav.recurring", to: "/recurring", icon: Repeat },
   { labelKey: "nav.goals", to: "/goals", icon: Flag },
-  { labelKey: "nav.advice", to: "/advice", icon: Lightbulb },
+  { labelKey: "nav.advice", to: "/advice", icon: Lightbulb, premiumOnly: true },
   { labelKey: "nav.settings", to: "/settings", icon: Settings },
   { labelKey: "nav.admin", to: "/admin", icon: ShieldCheck, adminOnly: true },
 ];

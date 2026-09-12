@@ -32,6 +32,7 @@ export interface CurrentUser {
   email: string;
   is_admin: boolean;
   is_active: boolean;
+  is_premium: boolean;
 }
 
 interface AuthState {

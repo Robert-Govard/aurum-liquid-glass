@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MoreHorizontal } from "lucide-react";
+import { Lock, MoreHorizontal } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { Dialog } from "@/components/ui/Dialog";
 import { GroupedList, GroupedListItem } from "@/components/ui/GroupedList";
@@ -86,11 +86,13 @@ export function MobileTabBar() {
                 />
               );
             }
+            const locked = item.premiumOnly && !user?.is_premium;
             return (
               <GroupedListItem
                 key={item.to}
                 icon={Icon}
                 label={t(item.labelKey)}
+                trailing={locked ? <Lock size={14} className="text-text-muted" /> : undefined}
                 onClick={() => {
                   navigate(item.to);
                   setMoreOpen(false);

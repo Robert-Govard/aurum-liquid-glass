@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Lock, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { Logo } from "@/components/layout/Logo";
 import { NAV_ITEMS } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
@@ -44,6 +44,7 @@ function NavList({ collapsed }: NavListProps) {
           );
         }
 
+        const locked = item.premiumOnly && !user?.is_premium;
         return (
           <NavLink
             key={item.to}
@@ -59,7 +60,12 @@ function NavList({ collapsed }: NavListProps) {
             }
           >
             <Icon size={18} className="shrink-0" />
-            {!collapsed && <span className="truncate">{label}</span>}
+            {!collapsed && (
+              <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
+                <span className="truncate">{label}</span>
+                {locked && <Lock size={12} className="shrink-0 text-text-muted" />}
+              </span>
+            )}
           </NavLink>
         );
       })}
