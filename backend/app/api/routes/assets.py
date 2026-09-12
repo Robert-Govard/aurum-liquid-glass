@@ -8,6 +8,7 @@ from app.api.deps import get_current_user, get_session
 from app.models.asset import Asset, AssetValuation
 from app.models.user import User
 from app.schemas.asset import AssetCreate, AssetRead, AssetUpdate, AssetValuationCreate, AssetValuationRead
+from app.services.plan_service import FREE_ASSET_LIMIT, count_assets, is_premium
 from app.services.scoped import get_owned_or_404, scoped
 
 router = APIRouter(prefix="/assets", tags=["assets"])
@@ -46,6 +47,8 @@ async def create_asset(
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> AssetRead:
+    if not is_premium(current_user) and await count_assets(session, current_user.id) >= FREE_ASSET_LIMIT:
+        raise HTTPException(status_code=402, detail="Free plan asset limit reached")
     asset = Asset(
         name=payload.name,
         asset_class=payload.asset_class,

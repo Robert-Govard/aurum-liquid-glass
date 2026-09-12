@@ -8,8 +8,9 @@ not-yet-committed insert); regression guard for sequence monotonicity under
 concurrent inserts; and that both endpoints still require authentication.
 """
 from httpx import AsyncClient
-from sqlalchemy import text
+from sqlalchemy import text, update
 
+from app.models.user import User
 from tests.helpers import txn_payload as _txn
 
 
@@ -138,7 +139,9 @@ async def test_import_never_touches_another_users_data(client: AsyncClient, acco
     assert any(a["id"] == b_account_id for a in b_accounts)
 
 
-async def test_import_does_not_break_sequence_for_other_users(client: AsyncClient, account_id, categories):
+async def test_import_does_not_break_sequence_for_other_users(
+    client: AsyncClient, account_id, categories, test_sessionmaker
+):
     """Regression guard for the sequence-reset bug this task fixes: restoring
     a user's own OLD, low-numbered backup must never roll the shared id
     sequence backward below ids another user's rows already occupy — doing
@@ -150,6 +153,13 @@ async def test_import_does_not_break_sequence_for_other_users(client: AsyncClien
 
     b_tokens = await register_user(client, "backupb3@example.com")
     b_headers = auth_headers(b_tokens["access_token"])
+    # This test needs to push B past the free-plan account limit purely to
+    # advance the shared id sequence — that's incidental to what's under
+    # test here, so make B premium rather than shrinking the account count
+    # and weakening the sequence-push this regression guard relies on.
+    async with test_sessionmaker() as session:
+        await session.execute(update(User).where(User.email == "backupb3@example.com").values(is_admin=True))
+        await session.commit()
     # Push the shared accounts-table sequence well past A's own ids.
     for i in range(5):
         resp = await client.post(

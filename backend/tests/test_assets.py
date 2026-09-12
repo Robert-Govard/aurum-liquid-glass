@@ -1,4 +1,5 @@
 """Manually-tracked assets: CRUD, valuation history, plus per-user isolation."""
+from app.services.plan_service import FREE_ASSET_LIMIT
 from tests.helpers import auth_headers, register_user
 
 
@@ -55,3 +56,12 @@ async def test_user_a_cannot_add_or_list_valuations_on_user_bs_asset(client):
 
     list_resp = await client.get(f"/assets/{b_asset['id']}/valuations")
     assert list_resp.status_code == 404
+
+
+async def test_free_user_cannot_exceed_the_asset_limit(client):
+    for i in range(FREE_ASSET_LIMIT):
+        resp = await client.post("/assets", json=_payload(name=f"Asset {i}"))
+        assert resp.status_code == 201
+
+    over_limit = await client.post("/assets", json=_payload(name="One too many"))
+    assert over_limit.status_code == 402

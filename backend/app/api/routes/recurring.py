@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_session
 from app.models.user import User
 from app.schemas.recurring import RecurringTransactionCreate, RecurringTransactionRead, RecurringTransactionUpdate
+from app.services.plan_service import FREE_RECURRING_LIMIT, count_active_recurring, is_premium
 from app.services.recurring_service import (
     create_recurring,
     delete_recurring,
@@ -28,6 +29,8 @@ async def create_recurring_route(
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> RecurringTransactionRead:
+    if not is_premium(current_user) and await count_active_recurring(session, current_user.id) >= FREE_RECURRING_LIMIT:
+        raise HTTPException(status_code=402, detail="Free plan recurring transaction limit reached")
     return await create_recurring(session, payload, current_user.id)
 
 

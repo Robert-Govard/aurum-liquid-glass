@@ -1,4 +1,5 @@
 """Recurring transaction templates: CRUD, posting, plus per-user isolation."""
+from app.services.plan_service import FREE_RECURRING_LIMIT
 from tests.helpers import auth_headers, register_user
 
 
@@ -70,3 +71,12 @@ async def test_user_a_cannot_update_delete_or_post_user_bs_recurring(client):
     assert (await client.patch(f"/recurring/{b_recurring['id']}", json={"amount": "1.00"})).status_code == 404
     assert (await client.post(f"/recurring/{b_recurring['id']}/post")).status_code == 404
     assert (await client.delete(f"/recurring/{b_recurring['id']}")).status_code == 404
+
+
+async def test_free_user_cannot_exceed_the_recurring_limit(client, account_id):
+    for i in range(FREE_RECURRING_LIMIT):
+        resp = await client.post("/recurring", json=_payload(account_id, description=f"Bill {i}"))
+        assert resp.status_code == 201
+
+    over_limit = await client.post("/recurring", json=_payload(account_id, description="One too many"))
+    assert over_limit.status_code == 402

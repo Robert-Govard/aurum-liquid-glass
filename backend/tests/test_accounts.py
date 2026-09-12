@@ -1,6 +1,10 @@
 """Accounts: CRUD plus per-user isolation (no test file existed for this
 router before — it was only ever exercised indirectly via other tests'
 `account_id` fixture)."""
+from app.services.plan_service import FREE_ACCOUNT_LIMIT
+from sqlalchemy import update
+
+from app.models.user import User
 from tests.helpers import auth_headers, register_user
 
 
@@ -53,3 +57,25 @@ async def test_user_a_cannot_delete_user_bs_account(client):
 
     still_there = await client.get("/accounts", headers=auth_headers(b_tokens["access_token"]))
     assert len(still_there.json()) == 1
+
+
+async def test_free_user_cannot_exceed_the_account_limit(client):
+    # Every test starts against a freshly truncated database (see
+    # conftest.py's autouse _clean_database fixture) — this user has zero
+    # accounts at the start of this test regardless of what other tests do.
+    for i in range(FREE_ACCOUNT_LIMIT):
+        resp = await client.post("/accounts", json={"name": f"Account {i}", "type": "checking", "currency": "USD"})
+        assert resp.status_code == 201
+
+    over_limit = await client.post("/accounts", json={"name": "One too many", "type": "checking", "currency": "USD"})
+    assert over_limit.status_code == 402
+
+
+async def test_premium_user_has_no_account_limit(client, test_sessionmaker):
+    async with test_sessionmaker() as session:
+        await session.execute(update(User).where(User.email == "test@example.com").values(is_admin=True))
+        await session.commit()
+
+    for i in range(FREE_ACCOUNT_LIMIT + 2):
+        resp = await client.post("/accounts", json={"name": f"Account {i}", "type": "checking", "currency": "USD"})
+        assert resp.status_code == 201

@@ -8,6 +8,7 @@ from app.models.enums import CategoryKind
 from app.models.transaction import Transaction, TransactionSplit
 from app.models.user import User
 from app.schemas.category import CategoryCreate, CategoryRead, CategoryUpdate
+from app.services.plan_service import FREE_CUSTOM_CATEGORY_LIMIT, count_custom_categories, is_premium
 from app.services.scoped import get_owned_or_404, scoped
 
 router = APIRouter(prefix="/categories", tags=["categories"])
@@ -53,6 +54,8 @@ async def create_category(
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> Category:
+    if not is_premium(current_user) and await count_custom_categories(session, current_user.id) >= FREE_CUSTOM_CATEGORY_LIMIT:
+        raise HTTPException(status_code=402, detail="Free plan custom category limit reached")
     if payload.parent_id is not None:
         await _validate_parent(session, payload.parent_id, payload.kind, category_id=None, user_id=current_user.id)
     category = Category(**payload.model_dump(), is_default=False, user_id=current_user.id)

@@ -5,6 +5,7 @@ never while it still has transactions.
 """
 from httpx import AsyncClient
 
+from app.services.plan_service import FREE_CUSTOM_CATEGORY_LIMIT
 from tests.helpers import auth_headers, register_user
 from tests.helpers import txn_payload as _txn
 
@@ -197,3 +198,14 @@ async def test_user_a_cannot_nest_under_user_bs_category(client):
         "/categories", json={"name": "Sneaky", "kind": "expense", "color": "#e34948", "parent_id": b_category["id"]}
     )
     assert resp.status_code == 400
+
+
+async def test_free_user_cannot_exceed_the_custom_category_limit(client):
+    for i in range(FREE_CUSTOM_CATEGORY_LIMIT):
+        resp = await client.post("/categories", json={"name": f"Custom {i}", "kind": "expense", "color": "#e34948"})
+        assert resp.status_code == 201
+
+    over_limit = await client.post(
+        "/categories", json={"name": "One too many", "kind": "expense", "color": "#e34948"}
+    )
+    assert over_limit.status_code == 402
