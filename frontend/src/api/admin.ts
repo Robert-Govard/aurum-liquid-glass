@@ -13,6 +13,10 @@ export function deleteAdminUser(id: number) {
   return api.delete<void>(`/admin/users/${id}`);
 }
 
+export function updateAdminUserPremium(id: number, premiumUntil: string | null) {
+  return api.patch<AdminUser>(`/admin/users/${id}/premium`, { premium_until: premiumUntil });
+}
+
 export function fetchAdminUserDashboard(userId: number, year: number, month: number) {
   return api.get<DashboardSummary>(`/admin/users/${userId}/dashboard-summary?year=${year}&month=${month}`);
 }

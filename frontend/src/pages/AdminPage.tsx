@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { AdminPremiumModal } from "@/components/admin/AdminPremiumModal";
 import { AdminUserDashboardModal } from "@/components/admin/AdminUserDashboardModal";
 import { AdminUserList } from "@/components/admin/AdminUserList";
 import { useAdminUsers, useDeleteAdminUser, useUpdateAdminUser } from "@/hooks/useAdmin";
@@ -14,6 +15,7 @@ export function AdminPage() {
   const updateUser = useUpdateAdminUser();
   const deleteUser = useDeleteAdminUser();
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
+  const [premiumUser, setPremiumUser] = useState<AdminUser | null>(null);
 
   function handleToggleActive(user: AdminUser) {
     updateUser.mutate({ id: user.id, isActive: !user.is_active });
@@ -45,11 +47,13 @@ export function AdminPage() {
               onView={setSelectedUser}
               onToggleActive={handleToggleActive}
               onDelete={handleDelete}
+              onManagePremium={setPremiumUser}
             />
           )}
         </CardContent>
       </Card>
       <AdminUserDashboardModal user={selectedUser} onClose={() => setSelectedUser(null)} />
+      <AdminPremiumModal user={premiumUser} onClose={() => setPremiumUser(null)} />
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { deleteAdminUser, fetchAdminUserDashboard, fetchAdminUsers, updateAdminUser } from "@/api/admin";
+import { deleteAdminUser, fetchAdminUserDashboard, fetchAdminUsers, updateAdminUser, updateAdminUserPremium } from "@/api/admin";
 
 export function useAdminUsers() {
   return useQuery({ queryKey: ["admin-users"], queryFn: fetchAdminUsers });
@@ -20,6 +20,15 @@ export function useUpdateAdminUser() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, isActive }: { id: number; isActive: boolean }) => updateAdminUser(id, { is_active: isActive }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-users"] }),
+  });
+}
+
+export function useUpdateAdminUserPremium() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, premiumUntil }: { id: number; premiumUntil: string | null }) =>
+      updateAdminUserPremium(id, premiumUntil),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-users"] }),
   });
 }

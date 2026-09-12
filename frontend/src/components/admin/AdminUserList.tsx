@@ -1,4 +1,4 @@
-import { Trash2 } from "lucide-react";
+import { BadgeCheck, Trash2 } from "lucide-react";
 import { Switch } from "@/components/ui/Switch";
 import { formatCurrency, formatFullDate, pluralizeRu } from "@/lib/format";
 import { useTranslation, type Language } from "@/lib/i18n";
@@ -10,6 +10,7 @@ interface AdminUserListProps {
   onView: (user: AdminUser) => void;
   onToggleActive: (user: AdminUser) => void;
   onDelete: (user: AdminUser) => void;
+  onManagePremium: (user: AdminUser) => void;
 }
 
 function accountsCountLabel(count: number, language: Language): string {
@@ -22,7 +23,7 @@ function transactionsCountLabel(count: number, language: Language): string {
   return count === 1 ? "transaction" : "transactions";
 }
 
-export function AdminUserList({ items, currentUserId, onView, onToggleActive, onDelete }: AdminUserListProps) {
+export function AdminUserList({ items, currentUserId, onView, onToggleActive, onDelete, onManagePremium }: AdminUserListProps) {
   const { t, language } = useTranslation();
 
   if (items.length === 0) {
@@ -45,6 +46,11 @@ export function AdminUserList({ items, currentUserId, onView, onToggleActive, on
                 {user.is_admin && (
                   <span className="shrink-0 rounded bg-surface-2 px-1 py-0.5 text-[10px] leading-none text-text-muted">
                     {t("admin.adminBadge")}
+                  </span>
+                )}
+                {user.is_premium && (
+                  <span className="shrink-0 rounded bg-surface-2 px-1 py-0.5 text-[10px] leading-none text-text-muted">
+                    {t("admin.premiumBadge")}
                   </span>
                 )}
                 {!user.is_active && (
@@ -75,6 +81,14 @@ export function AdminUserList({ items, currentUserId, onView, onToggleActive, on
                   onChange={() => onToggleActive(user)}
                   aria-label={user.is_active ? t("admin.disable") : t("admin.enable")}
                 />
+                <button
+                  type="button"
+                  onClick={() => onManagePremium(user)}
+                  aria-label={t("admin.managePremium")}
+                  className="rounded-md p-1.5 text-text-muted hover:bg-surface-2 hover:text-text-primary"
+                >
+                  <BadgeCheck size={16} />
+                </button>
                 <button
                   type="button"
                   onClick={() => onDelete(user)}

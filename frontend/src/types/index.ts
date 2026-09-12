@@ -31,12 +31,14 @@ export interface AdminUser {
   email: string;
   is_admin: boolean;
   is_active: boolean;
+  is_premium: boolean;
   created_at: string;
   last_login_at: string | null;
   accounts_count: number;
   transactions_count: number;
   net_worth: string;
   currency: string;
+  premium_until: string | null;
 }
 
 export interface Category {
