@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.security import decode_access_token
 from app.db.session import get_db
 from app.models.user import User
+from app.services.plan_service import is_premium
 
 DbSession = AsyncSession
 
@@ -38,4 +39,10 @@ async def get_current_user(
 async def get_current_admin(current_user: User = Depends(get_current_user)) -> User:
     if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Admin access required")
+    return current_user
+
+
+async def get_premium_user(current_user: User = Depends(get_current_user)) -> User:
+    if not is_premium(current_user):
+        raise HTTPException(status_code=402, detail="Premium subscription required")
     return current_user
