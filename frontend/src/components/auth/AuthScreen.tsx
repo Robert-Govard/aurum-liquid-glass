@@ -52,7 +52,7 @@ export function AuthScreen() {
         <CardContent className="flex flex-col items-center gap-6 p-6 pt-8 sm:p-8">
           <div className="flex flex-col items-center gap-1.5">
             <Logo size={40} />
-            <span className="text-lg font-semibold tracking-tight text-text-primary">Aurum</span>
+            <span className="text-lg font-semibold tracking-tight text-text-primary">Moneta</span>
             <span className="text-xs text-text-muted">{t("auth.subtitle")}</span>
           </div>
 

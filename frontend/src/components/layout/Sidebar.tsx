@@ -103,7 +103,7 @@ export function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
       ) : (
         <div className="flex items-center gap-2 px-4 py-4">
           <Logo size={24} />
-          <span className="text-lg font-semibold tracking-tight text-text-primary">Aurum</span>
+          <span className="text-lg font-semibold tracking-tight text-text-primary">Moneta</span>
         </div>
       )}
       <NavList collapsed={collapsed} />

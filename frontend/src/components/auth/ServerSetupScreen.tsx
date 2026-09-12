@@ -11,7 +11,7 @@ type Status = "idle" | "checking" | "invalid" | "unreachable";
 /** Shown by ServerGate on native builds before anything else — a
  * self-hosted backend has no fixed address the app could ship with, so
  * the first thing a fresh native install needs is the user's own
- * server's URL. Verifies the address actually reaches a real Aurum
+ * server's URL. Verifies the address actually reaches a real Moneta
  * backend (via /api/health) before saving it via lib/serverUrl.ts's
  * setServerUrl(), so a typo shows an error immediately instead of
  * silently breaking every request afterward. */
@@ -60,7 +60,7 @@ export function ServerSetupScreen() {
         <CardContent className="flex flex-col items-center gap-6 p-6 pt-8 sm:p-8">
           <div className="flex flex-col items-center gap-1.5">
             <Logo size={40} />
-            <span className="text-lg font-semibold tracking-tight text-text-primary">Aurum</span>
+            <span className="text-lg font-semibold tracking-tight text-text-primary">Moneta</span>
             <span className="text-xs text-text-muted">{t("serverSetup.subtitle")}</span>
           </div>
 

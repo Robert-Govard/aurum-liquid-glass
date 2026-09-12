@@ -1,10 +1,10 @@
 <div align="center">
 
-# Aurum
+# Moneta
 
 **See where every dollar comes from. Know where every dollar goes.**
 
-Aurum is a source-available personal finance operating system — a complete, granular, real-time picture of your money: cash flow, net worth, budgets, subscriptions, assets, and every income stream you own.
+Moneta is a source-available personal finance operating system — a complete, granular, real-time picture of your money: cash flow, net worth, budgets, subscriptions, assets, and every income stream you own.
 
 [![License: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-blue.svg)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
@@ -17,11 +17,11 @@ Aurum is a source-available personal finance operating system — a complete, gr
 
 <div align="center">
 
-<img src="images/1.png" alt="Aurum dashboard — real income, spending, savings rate, spending by category, and recent transactions" width="100%" />
+<img src="images/1.png" alt="Moneta dashboard — real income, spending, savings rate, spending by category, and recent transactions" width="100%" />
 
 <br /><br />
 
-<img src="images/2.png" alt="Aurum net worth timeline with full asset allocation breakdown" width="100%" />
+<img src="images/2.png" alt="Moneta net worth timeline with full asset allocation breakdown" width="100%" />
 
 <br /><br />
 
@@ -42,18 +42,18 @@ Aurum is a source-available personal finance operating system — a complete, gr
 
 ## 📖 Overview
 
-Most finance apps show you a pie chart of last month's spending and call it a day. **Aurum goes further.**
+Most finance apps show you a pie chart of last month's spending and call it a day. **Moneta goes further.**
 
 It's built for people who don't just want to **log** transactions — they want to understand the **mechanics** of their money: how capital grows or shrinks over time, which assets are pulling their weight, which subscriptions are quietly draining them, and which income streams are actually passive versus which just look that way on paper.
 
-Aurum treats your financial life as a **system**, not a spreadsheet.
+Moneta treats your financial life as a **system**, not a spreadsheet.
 
-## 💡 Why Aurum
+## 💡 Why Moneta
 
 - **Fragmentation is the enemy.** Bank apps, brokerage apps, crypto wallets, spreadsheets, subscription trackers — your financial picture is scattered across a dozen tools that don't talk to each other.
-- **Most trackers stop at "what happened."** Aurum also flags rising spending categories, unbudgeted expenses, and shifts in your savings rate — before they become a problem.
-- **The 80/20 rule, enforced.** Aurum can group your capital by risk level and warn you the moment too much of it is exposed.
-- **It should be free, forever — for you.** Financial clarity shouldn't sit behind a paywall. Aurum is source-available and self-hosted — your data never leaves your own server, and personal use is free forever. (See [License](#-license) — the code is open to read, run, and modify, but not to resell.)
+- **Most trackers stop at "what happened."** Moneta also flags rising spending categories, unbudgeted expenses, and shifts in your savings rate — before they become a problem.
+- **The 80/20 rule, enforced.** Moneta can group your capital by risk level and warn you the moment too much of it is exposed.
+- **It should be free, forever — for you.** Financial clarity shouldn't sit behind a paywall. Moneta is source-available and self-hosted — your data never leaves your own server, and personal use is free forever. (See [License](#-license) — the code is open to read, run, and modify, but not to resell.)
 
 ## 🧩 Core Features
 
@@ -76,7 +76,7 @@ Rank every category by total spend over any custom period to find what's actuall
 A standalone ROI calculator: enter what you'd invest and what it would pay you monthly, and see the annual return, payback period, and a compound-interest projection — with a year-by-year comparison chart of compounding vs. just banking the cash — before you commit to a purchase.
 
 ### 🔔 Proactive Alerts
-Aurum watches your numbers in the background and surfaces a warning the moment something crosses a threshold you configure: a sustained negative cash flow streak, a declining net worth trend, an over-budget category, too much capital sitting at risk, or cash sitting idle in an account for too long.
+Moneta watches your numbers in the background and surfaces a warning the moment something crosses a threshold you configure: a sustained negative cash flow streak, a declining net worth trend, an over-budget category, too much capital sitting at risk, or cash sitting idle in an account for too long.
 
 ### 🌐 Bilingual, Mobile-First
 Full Russian/English UI with a language switch in Settings, a light/dark/system theme toggle, and every screen designed mobile-first from day one.
@@ -86,7 +86,7 @@ Export your entire dataset — accounts, transactions, assets, budgets, goals �
 
 ## 🚀 Getting Started
 
-Aurum ships as three containers — Postgres, a FastAPI backend, and an nginx-served frontend — wired together with Docker Compose. No local Python, Node, or Postgres installation needed; Docker is the only requirement.
+Moneta ships as three containers — Postgres, a FastAPI backend, and an nginx-served frontend — wired together with Docker Compose. No local Python, Node, or Postgres installation needed; Docker is the only requirement.
 
 ### 1. Install Docker
 
@@ -121,12 +121,12 @@ At minimum, change these two before going any further:
 
 | Variable | What it does |
 |---|---|
-| `AURUM_POSTGRES_PASSWORD` | Password for Aurum's own Postgres container. The template ships with `change-me` on purpose — replace it with something real. |
+| `AURUM_POSTGRES_PASSWORD` | Password for Moneta's own Postgres container. The template ships with `change-me` on purpose — replace it with something real. |
 | `AURUM_JWT_SECRET` | Signing key for login sessions — generate a real one with `openssl rand -hex 32`. See [Security & Self-Hosting](#-security--self-hosting) below. |
 | `AURUM_SMTP_HOST` | The mail server used to send the verification link — required before anyone can complete registration; without it, accounts can be created but never verified, and login always fails with 403. |
 | `AURUM_PUBLIC_URL` | The address this instance is reachable at, used to build that verification link, e.g. `https://your-domain.com` or `http://192.168.1.50:3000`. |
 
-Everything else in `.env` (currency, CORS, the port Aurum listens on) has a sensible default and can be left alone for a first run — but the four rows above are not optional: registration will not actually work end-to-end without SMTP and the public URL configured.
+Everything else in `.env` (currency, CORS, the port Moneta listens on) has a sensible default and can be left alone for a first run — but the four rows above are not optional: registration will not actually work end-to-end without SMTP and the public URL configured.
 
 ### 4. Start it
 
@@ -166,18 +166,18 @@ Your data lives in a Docker named volume (`aurum_pgdata`), not in the repo folde
 
 ## 🔌 API
 
-Everything Aurum's UI can do — adding transactions, managing accounts and budgets, importing a CSV,
+Everything Moneta's UI can do — adding transactions, managing accounts and budgets, importing a CSV,
 tracking assets, exporting a backup — is also available as a plain JSON REST API at `/api`, so you
-can script Aurum or connect it to other programs. See **[DOCS.md](DOCS.md)** for the full reference,
+can script Moneta or connect it to other programs. See **[DOCS.md](DOCS.md)** for the full reference,
 or open `/api/docs` on your running instance for interactive Swagger docs.
 
 ## 🔒 Security & Self-Hosting
 
-**Aurum has its own per-user login.** Anyone with access to the app can register their own account (email + password) and only ever sees their own data — accounts, transactions, assets, everything is private to the user who created it. A few things to know:
+**Moneta has its own per-user login.** Anyone with access to the app can register their own account (email + password) and only ever sees their own data — accounts, transactions, assets, everything is private to the user who created it. A few things to know:
 
 - Set a real `AURUM_JWT_SECRET` in `.env` before running this anywhere other than your own machine — the placeholder value signs every login session with a key anyone could read straight out of this repo, letting them forge a valid session for any account. The backend refuses to start with the placeholder still set.
 - Registration is open by default — anyone who can reach the app can create an account. If you're self-hosting for just yourself or a small trusted group, keep the instance off the public internet (a VPN/Tailscale endpoint, a private network) rather than relying on registration friction to keep strangers out.
-- For anything beyond that — a reverse proxy with TLS (Caddy, Traefik, nginx + Let's Encrypt) is on you; Aurum doesn't terminate HTTPS itself.
+- For anything beyond that — a reverse proxy with TLS (Caddy, Traefik, nginx + Let's Encrypt) is on you; Moneta doesn't terminate HTTPS itself.
 
 If you find a security issue, please open a private report via GitHub's Security tab rather than a public issue.
 
@@ -190,22 +190,22 @@ If you find a security issue, please open a private report via GitHub's Security
 
 ## 🤝 Contributing
 
-Aurum is built in the open, for everyone. Contributions of all kinds are welcome — code, design, documentation, ideas, and bug reports. See [CONTRIBUTING.md](CONTRIBUTING.md) for how to get a dev environment running and what a good pull request looks like.
+Moneta is built in the open, for everyone. Contributions of all kinds are welcome — code, design, documentation, ideas, and bug reports. See [CONTRIBUTING.md](CONTRIBUTING.md) for how to get a dev environment running and what a good pull request looks like.
 
 ## 📄 License
 
-Aurum is released under the [PolyForm Noncommercial License 1.0.0](LICENSE).
+Moneta is released under the [PolyForm Noncommercial License 1.0.0](LICENSE).
 
 In plain terms: you can read the code, self-host it, modify it, and use it for any personal, educational, or noncommercial purpose, for free, forever. What you can't do is take it (or a modified version of it) and sell it, host it as a paid service for others, or otherwise build a commercial product on top of it. This is **not** an OSI-approved open source license — it's **source-available**. See the [LICENSE](LICENSE) file for the exact terms, and open an [Issue](../../issues) if you have a use case you're not sure is covered.
 
-## ❤️ Support Aurum
+## ❤️ Support Moneta
 
-Aurum is free and always will be for personal use. If it's helped you get a handle on your money and you'd like to help it keep growing, a donation goes a long way: **[Donate via Lava](https://app.lava.top/782447112?tabId=donate)**.
+Moneta is free and always will be for personal use. If it's helped you get a handle on your money and you'd like to help it keep growing, a donation goes a long way: **[Donate via Lava](https://app.lava.top/782447112?tabId=donate)**.
 
 ---
 
 <div align="center">
 
-**If Aurum helps you understand your money better, consider giving it a ⭐ — it genuinely helps the project grow.**
+**If Moneta helps you understand your money better, consider giving it a ⭐ — it genuinely helps the project grow.**
 
 </div>

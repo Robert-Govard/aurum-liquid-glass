@@ -382,12 +382,12 @@ const ru = {
   "backup.exportError": "Не удалось скачать бэкап.",
   "backup.importSuccess": "Данные восстановлены из бэкапа.",
   "backup.importError": "Не удалось восстановить бэкап.",
-  "backup.invalidFile": "Файл повреждён или не является JSON-бэкапом Aurum.",
+  "backup.invalidFile": "Файл повреждён или не является JSON-бэкапом Moneta.",
   "backup.confirmImport":
     "Восстановить данные из «{{filename}}»?\n\nЭто ПОЛНОСТЬЮ заменит все текущие счета, категории, транзакции и активы данными из файла. Отменить это действие нельзя — если хотите сохранить текущие данные, сначала сделайте экспорт.",
   "backup.footerWarning":
     "Восстановление полностью заменяет текущие данные содержимым файла — это нельзя отменить.",
-  "settings.version": "Aurum v{{version}}",
+  "settings.version": "Moneta v{{version}}",
 
   "insights.negativeCashFlow": "Расходы превышают доходы {{months}} мес. подряд (по последним завершённым месяцам)",
   "insights.netWorthDecline": "Капитал снижается {{months}} мес. подряд",
@@ -911,12 +911,12 @@ const en: Record<keyof typeof ru, string> = {
   "backup.exportError": "Failed to download the backup.",
   "backup.importSuccess": "Data restored from backup.",
   "backup.importError": "Failed to restore the backup.",
-  "backup.invalidFile": "The file is corrupted or is not an Aurum JSON backup.",
+  "backup.invalidFile": "The file is corrupted or is not a Moneta JSON backup.",
   "backup.confirmImport":
     "Restore data from “{{filename}}”?\n\nThis will COMPLETELY replace all current accounts, categories, transactions, and assets with the data from the file. This action cannot be undone — if you want to keep your current data, export it first.",
   "backup.footerWarning":
     "Restoring completely replaces your current data with the file's contents — this cannot be undone.",
-  "settings.version": "Aurum v{{version}}",
+  "settings.version": "Moneta v{{version}}",
 
   "insights.negativeCashFlow": "Expenses have exceeded income for {{months}} months in a row (based on the last completed months)",
   "insights.netWorthDecline": "Net worth has been declining for {{months}} months in a row",

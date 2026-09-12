@@ -1,4 +1,4 @@
-# Contributing to Aurum
+# Contributing to Moneta
 
 Thanks for considering a contribution — code, docs, bug reports, and ideas are all welcome.
 
@@ -36,7 +36,7 @@ uvicorn app.main:app --reload
 - **Frontend:** `npm run build` (runs `tsc -b` then `vite build`) must pass with no type errors.
 - **Backend:** new tables or columns need an Alembic migration (`alembic revision --autogenerate -m "..."`) — check the generated migration by hand, autogenerate isn't always right.
 - **New user-facing text** goes through the translation system in `frontend/src/lib/i18n.ts` (both `ru` and `en` — the `en` object is typed against `ru`'s keys, so a missing translation is a build error, not a runtime surprise) rather than being hardcoded in a component.
-- **Mobile:** check your change at a narrow viewport — Aurum is designed mobile-first.
+- **Mobile:** check your change at a narrow viewport — Moneta is designed mobile-first.
 - Keep PRs focused. A bug fix doesn't need an accompanying refactor.
 
 ## Reporting bugs
@@ -49,4 +49,4 @@ Open an [Issue](../../issues) first for anything that changes the data model or 
 
 ## License
 
-Aurum is licensed under [PolyForm Noncommercial 1.0.0](LICENSE), not a traditional OSI open source license — see the [README's License section](README.md#-license) for what that means in practice. By submitting a PR, you agree your contribution is licensed under the same terms as the rest of the project.
+Moneta is licensed under [PolyForm Noncommercial 1.0.0](LICENSE), not a traditional OSI open source license — see the [README's License section](README.md#-license) for what that means in practice. By submitting a PR, you agree your contribution is licensed under the same terms as the rest of the project.

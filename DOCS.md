@@ -1,8 +1,8 @@
-# Aurum API Documentation
+# Moneta API Documentation
 
-Aurum exposes the same REST API its own frontend uses. Every action available in the UI — adding a
+Moneta exposes the same REST API its own frontend uses. Every action available in the UI — adding a
 transaction, creating an account, tagging an expense, importing a CSV statement, tracking an asset,
-setting a budget — can be done directly over HTTP. This makes it possible to script Aurum, feed it
+setting a budget — can be done directly over HTTP. This makes it possible to script Moneta, feed it
 from another program (a bank-sync job, a bot, a shortcut on your phone), or pull your data into your
 own tools.
 
@@ -36,7 +36,7 @@ like Postman/Insomnia.
 
 ## Base URL & Authentication
 
-Aurum ships as three containers (Postgres, FastAPI backend, nginx-served frontend). The frontend
+Moneta ships as three containers (Postgres, FastAPI backend, nginx-served frontend). The frontend
 container reverse-proxies `/api/*` straight through to the backend, so **the API and the web UI share
 the same host and port** — whatever you set `AURUM_WEB_PORT` to in `.env` (default `3000`):
 
@@ -49,7 +49,7 @@ this base URL — e.g. `GET /transactions` means `GET http://localhost:3000/api/
 
 ### Auth
 
-Aurum uses real per-user accounts — every request (except `GET /api/health`) requires a valid JWT
+Moneta uses real per-user accounts — every request (except `GET /api/health`) requires a valid JWT
 access token, obtained by logging in. Registering does **not** log you in: the account must first be
 verified via the link emailed to it.
 
@@ -94,7 +94,7 @@ read, create, update, and delete only that user's own data, never anyone else's.
 - **Format:** all request and response bodies are JSON (`Content-Type: application/json`).
 - **IDs:** integer, auto-incrementing, assigned by the server.
 - **Money fields** (`amount`, `monthly_limit`, `value`, ...): decimal numbers as JSON numbers or
-  strings, up to 14 digits with 2 decimal places. Aurum is single-currency per account/asset — there
+  strings, up to 14 digits with 2 decimal places. Moneta is single-currency per account/asset — there
   is no built-in FX conversion.
 - **Dates:** `YYYY-MM-DD` (ISO 8601 date, no time component). Timestamps (e.g. backup `exported_at`)
   are full ISO 8601 datetimes.
@@ -690,7 +690,7 @@ in every `GET /crypto/holdings` response.
 
 ## Dashboard, Cash Flow & Reports
 
-Read-only aggregation endpoints — the numbers behind Aurum's charts. Useful for pulling summary data
+Read-only aggregation endpoints — the numbers behind Moneta's charts. Useful for pulling summary data
 into an external dashboard without recomputing it yourself.
 
 | Method | Path | Description |
@@ -872,4 +872,4 @@ curl -u user:pass -X POST http://localhost:3000/api/transactions/bulk \
 
 ---
 
-For self-hosting, environment variables, and running Aurum itself, see [README.md](README.md).
+For self-hosting, environment variables, and running Moneta itself, see [README.md](README.md).

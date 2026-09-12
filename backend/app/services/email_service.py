@@ -23,14 +23,14 @@ def send_verification_email(to_email: str, token: str) -> None:
     # silently breaking verification with no error message anywhere.
     verify_url = f"{settings.public_url.rstrip('/')}/verify-email?token={token}"
     message = EmailMessage()
-    message["Subject"] = "Подтвердите email — Aurum"
+    message["Subject"] = "Подтвердите email — Moneta"
     message["From"] = settings.smtp_from or settings.smtp_user
     message["To"] = to_email
     message.set_content(
         "Здравствуйте!\n\n"
-        "Чтобы подтвердить свой email в Aurum, перейдите по ссылке "
+        "Чтобы подтвердить свой email в Moneta, перейдите по ссылке "
         f"(действительна 24 часа):\n{verify_url}\n\n"
-        "Если вы не регистрировались в Aurum, просто проигнорируйте это письмо."
+        "Если вы не регистрировались в Moneta, просто проигнорируйте это письмо."
     )
 
     try:

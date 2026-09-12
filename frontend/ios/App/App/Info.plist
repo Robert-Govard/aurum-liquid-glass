@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-        <string>Aurum</string>
+        <string>Moneta</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -72,7 +72,7 @@
 	     writeCordovaAndroidManifest(), which is Android-only; there is no
 	     equivalent iOS Info.plist writer in this Capacitor version. iOS's
 	     own App Transport Security blocks all non-HTTPS connections by
-	     default, and Aurum's documented default self-hosted deployment is
+	     default, and Moneta's documented default self-hosted deployment is
 	     plain HTTP (http://localhost:3000, no TLS) — without this
 	     exception the app could never reach that default deployment, or
 	     any other non-HTTPS install, at all. Same deliberate requirement

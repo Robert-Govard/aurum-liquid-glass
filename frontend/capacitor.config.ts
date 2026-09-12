@@ -7,14 +7,14 @@ import type { CapacitorConfig } from "@capacitor/cli";
 // effectively a new app from Android's point of view).
 const config: CapacitorConfig = {
   appId: "com.aurum.app",
-  appName: "Aurum",
+  appName: "Moneta",
   webDir: "dist",
   server: {
     // The native WebView serves the app from the fixed origin
     // "https://localhost" (Capacitor's default androidScheme), while the
     // backend it talks to is an arbitrary, user-configured address entered
     // in ServerSetupScreen (see lib/serverUrl.ts) — almost always a
-    // *different* origin. Aurum's own README documents the default
+    // *different* origin. Moneta's own README documents the default
     // self-hosted deployment as plain HTTP on http://localhost:3000 (no
     // TLS by default), and Android blocks all cleartext (HTTP) traffic
     // app-wide since API 28. Without this, the app cannot reach that
@@ -27,7 +27,7 @@ const config: CapacitorConfig = {
     // capacitor-cordova-android-plugins module's manifest — Gradle's
     // manifest merger then carries that attribute into the main app's
     // compiled AndroidManifest.xml. This is a deliberate requirement of
-    // Aurum's self-hosted, no-TLS-by-default model, not an oversight.
+    // Moneta's self-hosted, no-TLS-by-default model, not an oversight.
     cleartext: true,
   },
   plugins: {

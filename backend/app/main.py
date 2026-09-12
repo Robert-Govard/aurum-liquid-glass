@@ -56,7 +56,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Aurum API",
+    title="Moneta API",
     version=APP_VERSION,
     lifespan=lifespan,
     # Docs live under /api/* because nginx only proxies that prefix to the

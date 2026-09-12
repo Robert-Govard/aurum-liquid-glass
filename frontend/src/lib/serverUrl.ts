@@ -5,7 +5,7 @@ import { Preferences } from "@capacitor/preferences";
 /**
  * Where a native (Android/iOS) build's backend actually lives.
  *
- * Aurum is self-hosted — every installer runs their own backend, there is
+ * Moneta is self-hosted — every installer runs their own backend, there is
  * no canonical hosted URL this app could ship with. On the web this is
  * moot: the app is always served BY that same backend's own nginx, which
  * proxies /api/* same-origin, so a plain relative path already works and

@@ -249,7 +249,7 @@ async def restore_backup(session: AsyncSession, payload: BackupPayload, user_id:
         raise HTTPException(
             400,
             f"Unsupported backup version {payload.aurum_backup_version} "
-            f"(this Aurum version supports {BACKUP_FORMAT_VERSION})",
+            f"(this Moneta version supports {BACKUP_FORMAT_VERSION})",
         )
 
     _validate_references(payload)
